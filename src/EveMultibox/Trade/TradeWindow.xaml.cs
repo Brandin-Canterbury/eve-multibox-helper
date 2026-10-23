@@ -97,6 +97,11 @@ public partial class TradeWindow : Window
                 .Select(r => new RouteRow(r.Route, sde, _trade.CachedStationName) { Daily = r.Daily })
                 .ToList();
             Restore(routes, rows, RoutesGrid, RouteStatus, RouteCharBox, RouteHubsRadio, RouteJumpsRadio, RouteRadiusBox);
+
+            // Every route found last time, so a different From / To works straight away (older saves only have the shown ones).
+            _candidates = routes.Candidates ?? savedRoutes.Select(r => r.Route).ToList();
+            _shownFilter = (routes.FilterFrom, routes.FilterTo);
+            RouteFilterCount.Text = $"{rows.Count} routes  ·  from {_candidates.Count:N0} candidates";
             if (_trade.CurrentRun is null)
             {
                 string name = _trade.Characters.FirstOrDefault(c => c.Id == routes.CharacterId)?.Name ?? "";
@@ -275,30 +280,27 @@ public partial class TradeWindow : Window
 
             var trader = MarketService.Trader(s.Character, s.Assets, s.Sde);
             RouteStatus.Text = $"Comparing {s.Market.OrderCount:N0} orders across {s.Stations.Count} stations…";
-            var options = new RouteOptions { MaxResults = 1500 };
+
+            // Hub to hub: keep the best routes for every direction (20 hub pairs), so a direction with thinner
+            // margins, e.g. anything into Jita, isn't crowded out by the most profitable one.
+            bool hubMode = ModeOf(RouteHubsRadio) == SearchMode.HubToHub;
+            var options = hubMode
+                ? new RouteOptions { MaxPerPair = CandidatesPerDirection, MaxResults = int.MaxValue }
+                : new RouteOptions { MaxResults = 1500 };
             var candidates = await Task.Run(() => RouteFinder.Find(s.Market, s.Stations, s.Sde, trader, s.Jumps, s.Averages, options), s.Token);
 
-            // Only keep what the destination actually sells: units are cut to ~3 days of its trade volume.
-            var routes = await _market.WithDemandAsync(candidates, s.Sde, DaysToSell, options.MinProfit, want: 100,
-                new Progress<string>(m => RouteStatus.Text = m), s.Token);
-
-            var rows = routes.Select(r => new RouteRow(r.Route, s.Sde, _trade.CachedStationName) { Daily = r.Daily }).ToList();
-            RoutesGrid.ItemsSource = rows;
-            ApplyRouteFilter();
-            RouteStatus.Text = rows.Count == 0
-                ? $"No profitable routes with real demand right now for {s.Character.Name}'s hold and wallet. Try another mode or a bigger ship."
-                : $"{rows.Count} routes for {s.Character.Name} (units capped at ~{DaysToSell} days of sales at the destination). " +
-                  $"Free hold: {trader.FreeCargo:N0} m³" +
-                  (trader.FreeOreHold > 0 ? $", mining hold {trader.FreeOreHold:N0} m³" : "") +
-                  $" (EVE's cargo data can be up to an hour old). Wallet {Isk.Short(trader.Wallet)}.";
+            _candidates = candidates;
+            _shownFilter = null;
             _trade.LastRoutes = new SearchResults(ModeOf(RouteHubsRadio), RadiusOf(RouteRadiusBox), s.Character.Id,
-                s.Market.FetchedAt, RouteStatus.Text,
-                routes.Select(r => new SavedRoute(r.Route, r.Daily)).ToList(), null,
-                _trade.StationNamesFor(routes.SelectMany(r => new[] { r.Route.SourceStation, r.Route.DestStation })),
-                trader.FreeCargo, trader.FreeOreHold, trader.Wallet);
+                s.Market.FetchedAt, "", new List<SavedRoute>(), null,
+                _trade.StationNamesFor(candidates.SelectMany(r => new[] { r.SourceStation, r.DestStation })),
+                trader.FreeCargo, trader.FreeOreHold, trader.Wallet, candidates);
             StartNewRun(s.Sde, s.Character.Name, trader.FreeCargo, trader.FreeOreHold, trader.Wallet,
                 cleared: _trade.CurrentRun?.Items.Count > 0);
             UpdateAges();
+
+            // Demand-check and show the routes for the current From / To choice.
+            await ShowFilteredRoutesAsync(force: true);
         }
         catch (OperationCanceledException)
         {
@@ -320,23 +322,112 @@ public partial class TradeWindow : Window
         public override string ToString() => Name;
     }
 
+    /// <summary>Best routes kept per hub direction before the demand check (5 hubs = 20 directions).</summary>
+    private const int CandidatesPerDirection = 300;
+
+    /// <summary>The demand-checked routes shown per direction.</summary>
+    private const int RoutesShown = 100;
+
+    /// <summary>Every route the last search found (best per direction), demand-checked on demand for the chosen From / To.</summary>
+    private List<RouteCandidate>? _candidates;
+
+    /// <summary>The From / To the grid currently shows, so re-selecting the same pair doesn't recheck.</summary>
+    private (long? From, long? To)? _shownFilter;
+
+    private CancellationTokenSource? _verify;
+    private bool _buildingFilters;
+
     private async Task BuildHubFiltersAsync()
     {
         var hubs = _app.Config.Trade.HubStationIds;
         await _trade.StationNamesAsync(hubs);
         var choices = new List<HubChoice> { new(null, "Any hub") };
         choices.AddRange(hubs.Select(h => new HubChoice(h, ShortStation(h))));
+
+        // Start on the direction the saved results are for, without triggering a recheck.
+        _buildingFilters = true;
         RouteFromBox.ItemsSource = choices;
         RouteToBox.ItemsSource = choices.ToList();
-        RouteFromBox.SelectedIndex = RouteToBox.SelectedIndex = 0;
-        ApplyRouteFilter();
+        var last = _trade.LastRoutes;
+        RouteFromBox.SelectedIndex = Math.Max(0, choices.FindIndex(c => c.StationId == last?.FilterFrom));
+        RouteToBox.SelectedIndex = Math.Max(0, choices.FindIndex(c => c.StationId == last?.FilterTo));
+        _buildingFilters = false;
+        UpdateFilterRow();
     }
 
-    private void RouteFilter_Changed(object sender, SelectionChangedEventArgs e) => ApplyRouteFilter();
+    private async void RouteFilter_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_buildingFilters) await ShowFilteredRoutesAsync();
+    }
 
     private void RouteMode_Changed(object sender, RoutedEventArgs e)
     {
-        if (IsLoaded) ApplyRouteFilter();
+        if (IsLoaded) UpdateFilterRow();
+    }
+
+    private (long? From, long? To) CurrentFilter() => RouteHubsRadio.IsChecked == true
+        ? ((RouteFromBox.SelectedItem as HubChoice)?.StationId, (RouteToBox.SelectedItem as HubChoice)?.StationId)
+        : (null, null);
+
+    private string FilterLabel((long? From, long? To) f) =>
+        $"{(f.From is long a ? ShortStation(a) : "any hub")} → {(f.To is long b ? ShortStation(b) : "any hub")}";
+
+    /// <summary>
+    /// Demand-checks the routes for the chosen From / To and shows the best <see cref="RoutesShown"/>.
+    /// Uses the last search's routes, so changing direction needs no new market download.
+    /// </summary>
+    private async Task ShowFilteredRoutesAsync(bool force = false)
+    {
+        UpdateFilterRow();
+        var filter = CurrentFilter();
+        if (_candidates is null || _trade.LastRoutes is not { } last || (!force && _shownFilter == filter)) return;
+        if (await _trade.EnsureStaticDataAsync() is not { } sde) return;
+
+        _verify?.Cancel();
+        var cts = _verify = new CancellationTokenSource();
+        var matching = _candidates.Where(r => RouteFilter.Matches(r, filter.From, filter.To)).ToList();
+        string who = _trade.Characters.FirstOrDefault(c => c.Id == last.CharacterId)?.Name ?? "you";
+        RouteStatus.Foreground = (System.Windows.Media.Brush)FindResource("TextDim");
+
+        try
+        {
+            // Only keep what the destination actually sells: units are cut to ~3 days of its trade volume.
+            var routes = await _market.WithDemandAsync(matching, sde, DaysToSell, new RouteOptions().MinProfit, want: RoutesShown,
+                new Progress<string>(m => { if (!cts.IsCancellationRequested) RouteStatus.Text = m; }), cts.Token);
+            if (cts.IsCancellationRequested) return;
+
+            var rows = routes.Select(r => new RouteRow(r.Route, sde, _trade.CachedStationName) { Daily = r.Daily }).ToList();
+            RoutesGrid.ItemsSource = rows;
+            _shownFilter = filter;
+            RouteFilterCount.Text = $"{rows.Count} routes for {FilterLabel(filter)}  ·  from {matching.Count:N0} candidates";
+            RouteStatus.Text = rows.Count == 0
+                ? $"No profitable routes with real demand for {FilterLabel(filter)} right now with {who}'s hold and wallet."
+                : $"Best {rows.Count} routes for {FilterLabel(filter)}, sized for {who} (units capped at ~{DaysToSell} days of sales at the destination). " +
+                  $"Free hold: {last.FreeCargo:N0} m³" + (last.FreeOreHold > 0 ? $", mining hold {last.FreeOreHold:N0} m³" : "") +
+                  $" (EVE's cargo data can be up to an hour old). Wallet {Isk.Short(last.Wallet)}.";
+
+            _trade.LastRoutes = last with
+            {
+                Routes = routes.Select(r => new SavedRoute(r.Route, r.Daily)).ToList(),
+                Status = RouteStatus.Text,
+                FilterFrom = filter.From,
+                FilterTo = filter.To,
+            };
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex) when (ex is EsiException or System.Net.Http.HttpRequestException)
+        {
+            if (!cts.IsCancellationRequested) RouteStatus.Text = "Couldn't check demand: " + ex.Message;
+        }
+    }
+
+    private void UpdateFilterRow()
+    {
+        bool hubMode = RouteHubsRadio.IsChecked == true;
+        HubFilterRow.IsEnabled = hubMode;
+        HubFilterRow.Opacity = hubMode ? 1 : 0.4;
     }
 
     /// <summary>Swaps From and To: after a Jita → Amarr run, one click shows Amarr → Jita.</summary>
@@ -345,23 +436,6 @@ public partial class TradeWindow : Window
         int from = RouteFromBox.SelectedIndex;
         RouteFromBox.SelectedIndex = RouteToBox.SelectedIndex;
         RouteToBox.SelectedIndex = from;
-    }
-
-    /// <summary>Shows only routes in the chosen direction. Applies to hub-to-hub results only.</summary>
-    private void ApplyRouteFilter()
-    {
-        bool hubMode = RouteHubsRadio.IsChecked == true;
-        HubFilterRow.IsEnabled = hubMode;
-        HubFilterRow.Opacity = hubMode ? 1 : 0.4;
-        if (RoutesGrid.ItemsSource is not IEnumerable<RouteRow> all) return;
-
-        long? from = hubMode ? (RouteFromBox.SelectedItem as HubChoice)?.StationId : null;
-        long? to = hubMode ? (RouteToBox.SelectedItem as HubChoice)?.StationId : null;
-        var view = System.Windows.Data.CollectionViewSource.GetDefaultView(RoutesGrid.ItemsSource);
-        view.Filter = from is null && to is null ? null : o => o is RouteRow r && RouteFilter.Matches(r.Route, from, to);
-
-        int total = all.Count(), shown = RoutesGrid.Items.Count;
-        RouteFilterCount.Text = shown == total ? $"{total} routes" : $"Showing {shown} of {total} routes";
     }
 
     private void RoutesGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)

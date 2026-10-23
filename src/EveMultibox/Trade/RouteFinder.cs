@@ -34,6 +34,13 @@ public sealed record RouteOptions
     public double MinProfit { get; init; } = 100_000;
     public int MaxResults { get; init; } = 200;
 
+    /// <summary>
+    /// Keep at most this many routes per buy → sell station pair before <see cref="MaxResults"/>
+    /// applies. Without it, the most profitable direction (usually out of Jita) crowds every other
+    /// direction out of the list.
+    /// </summary>
+    public int MaxPerPair { get; init; } = int.MaxValue;
+
     /// <summary>Per item, only try this many cheapest sources and priciest destinations (keeps big searches fast).</summary>
     public int CandidatesPerSide { get; init; } = 4;
 }
@@ -144,7 +151,11 @@ public static class RouteFinder
             }
         }
 
-        return results.OrderByDescending(r => r.Profit).Take(options.MaxResults).ToList();
+        var kept = options.MaxPerPair == int.MaxValue
+            ? results
+            : results.GroupBy(r => (r.SourceStation, r.DestStation))
+                .SelectMany(g => g.OrderByDescending(r => r.Profit).Take(options.MaxPerPair));
+        return kept.OrderByDescending(r => r.Profit).Take(options.MaxResults).ToList();
     }
 
     /// <summary>

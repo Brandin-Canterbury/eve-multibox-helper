@@ -36,7 +36,10 @@ public sealed record SavedSale(SellOption? Now, SellOption? List);
 public sealed record SearchResults(
     SearchMode Mode, int Radius, long CharacterId, DateTimeOffset At, string Status,
     List<SavedRoute>? Routes, List<SavedSale>? Sales, Dictionary<long, string> StationNames,
-    double FreeCargo = 0, double FreeOreHold = 0, double Wallet = 0);
+    double FreeCargo = 0, double FreeOreHold = 0, double Wallet = 0,
+    List<RouteCandidate>? Candidates = null, long? FilterFrom = null, long? FilterTo = null);
+// Routes = the demand-checked routes shown for FilterFrom → FilterTo; Candidates = every route found
+// (best per direction), so a different From / To can be shown without downloading the market again.
 
 /// <summary>Gathers what the route and sell finders need: stations, order books, prices, holds, assets, demand.</summary>
 public sealed class MarketService

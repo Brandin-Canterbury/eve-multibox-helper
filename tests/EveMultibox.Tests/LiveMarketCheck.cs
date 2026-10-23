@@ -41,7 +41,7 @@ public class LiveMarketCheck
         var trader = new TraderContext(30000142, 5_000, 0, 100_000_000, new SkillProfile(Accounting: 3, BrokerRelations: 3));
 
         sw.Restart();
-        var options = new RouteOptions { MaxResults = 1500 };
+        var options = new RouteOptions { MaxPerPair = 300, MaxResults = int.MaxValue };
         var candidates = RouteFinder.Find(market, hubs, sde, trader, (a, b) => graph.Jumps(a, b), averages, options);
         _out.WriteLine($"{candidates.Count} candidates in {sw.Elapsed.TotalSeconds:N1}s (from Jita, 5,000 m³, 100M ISK)");
 
@@ -52,6 +52,16 @@ public class LiveMarketCheck
             string since = DateTime.UtcNow.AddDays(-8).ToString("yyyy-MM-dd");
             return days.Where(d => string.CompareOrdinal(d.Date, since) > 0).Sum(d => (double)d.Volume) / 7;
         }
+        foreach (var g in candidates.GroupBy(c => (c.SourceStation, c.DestStation)).OrderBy(g => sde.SystemName(sde.Stations[g.Key.DestStation].SystemId)))
+            _out.WriteLine($"  candidates {sde.SystemName(sde.Stations[g.Key.SourceStation].SystemId),-8} → {sde.SystemName(sde.Stations[g.Key.DestStation].SystemId),-8} {g.Count(),4}");
+
+        // The direction that used to come back empty.
+        var intoJita = candidates.Where(c => RouteFilter.Matches(c, null, 60003760)).ToList();
+        var jitaVerified = await MarketService.FilterByDemandAsync(intoJita, sde, Daily, 3, options.MinProfit, 100, null, CancellationToken.None);
+        _out.WriteLine($"Any hub → Jita: {intoJita.Count} candidates, {jitaVerified.Count} with real demand");
+        foreach (var (r, d) in jitaVerified.Take(8))
+            _out.WriteLine($"  {r.ItemName,-40} {sde.SystemName(sde.Stations[r.SourceStation].SystemId),-8} → Jita  {r.Units,7:N0} u  profit {r.Profit / 1e6,6:N2}M  sold/day {d:N0}");
+
         var verified = await MarketService.FilterByDemandAsync(candidates, sde, Daily, 3, options.MinProfit, 100, null, CancellationToken.None);
         var routes = verified.Select(v => v.Route).ToList();
         _out.WriteLine($"Found {routes.Count} routes with real demand in {sw.Elapsed.TotalSeconds:N1}s");
