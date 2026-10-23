@@ -25,6 +25,7 @@ public partial class MenuButtonWindow : Window
     public MenuButtonWindow(App app)
     {
         InitializeComponent();
+        WindowLook.Apply(this);
         _app = app;
 
         // Start off-screen; the real spot is set in pixels once the window exists.

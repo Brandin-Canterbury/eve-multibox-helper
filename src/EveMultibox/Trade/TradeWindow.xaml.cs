@@ -21,6 +21,7 @@ public partial class TradeWindow : Window
     public TradeWindow(App app, TradeService trade)
     {
         InitializeComponent();
+        Shell.WindowLook.Apply(this, resizable: true);
         _app = app;
         _trade = trade;
         _market = new MarketService(trade, () => app.Config.Trade.HubStationIds);
@@ -59,11 +60,20 @@ public partial class TradeWindow : Window
         {
             KeepOnScreen();
             RefreshSetupState();
-            SelectDefaultCharacter();
-            UpdateAges();
-            RefreshRun();
-            ageTimer.Start();
-            await RestoreResultsAsync();
+            // Picking defaults and restoring saved results aren't character changes by the user.
+            _restoring = true;
+            try
+            {
+                SelectDefaultCharacter();
+                UpdateAges();
+                RefreshRun();
+                ageTimer.Start();
+                await RestoreResultsAsync();
+            }
+            finally
+            {
+                _restoring = false;
+            }
             await BuildHubButtonsAsync();
         };
     }
@@ -86,7 +96,11 @@ public partial class TradeWindow : Window
                 .Select(r => new RouteRow(r.Route, sde, _trade.CachedStationName) { Daily = r.Daily })
                 .ToList();
             Restore(routes, rows, RoutesGrid, RouteStatus, RouteCharBox, RouteHubsRadio, RouteJumpsRadio, RouteRadiusBox);
-            if (_trade.CurrentRun is null) StartNewRun(sde);
+            if (_trade.CurrentRun is null)
+            {
+                string name = _trade.Characters.FirstOrDefault(c => c.Id == routes.CharacterId)?.Name ?? "";
+                StartNewRun(sde, name, routes.FreeCargo, routes.FreeOreHold, routes.Wallet);
+            }
         }
         RefreshRun();
 
@@ -111,6 +125,7 @@ public partial class TradeWindow : Window
         if (grid.ItemsSource is not null) return;
         grid.ItemsSource = rows;
         status.Text = last.Status;
+        // Selecting the saved character isn't a user change (the Loaded handler sets _restoring around this).
         if (_trade.Characters.FirstOrDefault(c => c.Id == last.CharacterId) is { } c) charBox.SelectedItem = c;
         hubs.IsChecked = last.Mode == SearchMode.HubToHub;
         jumps.IsChecked = last.Mode == SearchMode.WithinJumps;
@@ -181,8 +196,13 @@ public partial class TradeWindow : Window
     private sealed record SearchSetup(CharacterState Character, SdeData Sde, IReadOnlyList<long> Stations, Func<int, int, int?> Jumps,
         Dictionary<int, double> Averages, List<EsiAsset> Assets, MarketSnapshot Market, CancellationToken Token);
 
+    /// <summary>Market data from the last route search this session, reusable for another character.</summary>
+    private MarketCache? _routeMarket;
+
     /// <summary>Everything both tabs need: fresh character info, the station set, orders, prices, assets.</summary>
-    private async Task<SearchSetup?> PrepareAsync(ComboBox charBox, RadioButton hubs, TextBox radiusBox, CheckBox safeBox, TextBlock status)
+    /// <param name="reuse">Market data to reuse instead of downloading again, if it covers the same stations.</param>
+    private async Task<SearchSetup?> PrepareAsync(ComboBox charBox, RadioButton hubs, TextBox radiusBox, CheckBox safeBox, TextBlock status,
+        MarketCache? reuse = null)
     {
         if (charBox.SelectedItem is not CharacterState c)
         {
@@ -224,24 +244,33 @@ public partial class TradeWindow : Window
             return null;
         }
 
-        var averages = await _market.AveragePricesAsync(ct);
         status.Text = $"Reading {c.Name}'s assets…";
         var assets = await _market.AssetsAsync(c, ct);
-        var snapshot = await _market.LoadOrdersAsync(stations, sde, progress, ct);
+
+        // Same stations as the market data already loaded? Then only the character changed: reuse it.
+        bool reusable = reuse?.Covers(mode, safe, stations) == true;
+        var averages = reusable ? reuse!.Averages : await _market.AveragePricesAsync(ct);
+        var snapshot = reusable ? reuse!.Market : await _market.LoadOrdersAsync(stations, sde, progress, ct);
         await _trade.StationNamesAsync(stations);
         return new SearchSetup(c, sde, stations, _market.JumpCounter(sde, safe), averages, assets, snapshot, ct);
     }
 
     // ---- Trade Routes ----
 
-    private async void PopulateRoutes_Click(object sender, RoutedEventArgs e)
+    private async void PopulateRoutes_Click(object sender, RoutedEventArgs e) => await PopulateRoutesAsync(reuseMarket: false);
+
+    /// <param name="reuseMarket">Recompute with this session's market data (e.g. after switching character) instead of downloading it again.</param>
+    private async Task PopulateRoutesAsync(bool reuseMarket)
     {
         // Old results stay visible until new ones arrive, so a failed refresh doesn't wipe them.
         PopulateRoutesButton.IsEnabled = false;
+        RouteStatus.Foreground = (System.Windows.Media.Brush)FindResource("TextDim");
         try
         {
-            var s = await PrepareAsync(RouteCharBox, RouteHubsRadio, RouteRadiusBox, RouteSafeBox, RouteStatus);
+            var s = await PrepareAsync(RouteCharBox, RouteHubsRadio, RouteRadiusBox, RouteSafeBox, RouteStatus,
+                reuseMarket ? _routeMarket : null);
             if (s is null) return;
+            _routeMarket = new MarketCache(ModeOf(RouteHubsRadio), RouteSafeBox.IsChecked == true, s.Stations, s.Market, s.Averages);
 
             var trader = MarketService.Trader(s.Character, s.Assets, s.Sde);
             RouteStatus.Text = $"Comparing {s.Market.OrderCount:N0} orders across {s.Stations.Count} stations…";
@@ -255,8 +284,8 @@ public partial class TradeWindow : Window
             var rows = routes.Select(r => new RouteRow(r.Route, s.Sde, _trade.CachedStationName) { Daily = r.Daily }).ToList();
             RoutesGrid.ItemsSource = rows;
             RouteStatus.Text = rows.Count == 0
-                ? "No profitable routes with real demand right now for your hold and wallet. Try another mode or a bigger ship."
-                : $"{rows.Count} routes (units capped at ~{DaysToSell} days of sales at the destination). " +
+                ? $"No profitable routes with real demand right now for {s.Character.Name}'s hold and wallet. Try another mode or a bigger ship."
+                : $"{rows.Count} routes for {s.Character.Name} (units capped at ~{DaysToSell} days of sales at the destination). " +
                   $"Free hold: {trader.FreeCargo:N0} m³" +
                   (trader.FreeOreHold > 0 ? $", mining hold {trader.FreeOreHold:N0} m³" : "") +
                   $" (EVE's cargo data can be up to an hour old). Wallet {Isk.Short(trader.Wallet)}.";
@@ -265,7 +294,8 @@ public partial class TradeWindow : Window
                 routes.Select(r => new SavedRoute(r.Route, r.Daily)).ToList(), null,
                 _trade.StationNamesFor(routes.SelectMany(r => new[] { r.Route.SourceStation, r.Route.DestStation })),
                 trader.FreeCargo, trader.FreeOreHold, trader.Wallet);
-            StartNewRun(s.Sde, cleared: _trade.CurrentRun?.Items.Count > 0);
+            StartNewRun(s.Sde, s.Character.Name, trader.FreeCargo, trader.FreeOreHold, trader.Wallet,
+                cleared: _trade.CurrentRun?.Items.Count > 0);
             UpdateAges();
         }
         catch (OperationCanceledException)
@@ -291,13 +321,55 @@ public partial class TradeWindow : Window
 
     private sealed record RunItemView(RouteCandidate Route, string Name, string Detail, string ProfitText);
 
-    /// <summary>A fresh, empty run sized to the hold and wallet from the latest route search.</summary>
-    private void StartNewRun(SdeData sde, bool cleared = false)
+    /// <summary>Whose hold and wallet the current run is sized for (kept with the run, across window closes).</summary>
+    private string? RunCharacter
     {
-        if (_trade.LastRoutes is not { } last) return;
-        _trade.CurrentRun = new TradeRun(last.FreeCargo, last.FreeOreHold, last.Wallet,
-            type => sde.Types.TryGetValue(type, out var t) && t.IsOre);
-        RefreshRun(cleared ? "New market data, so the run was cleared. Add routes again." : null);
+        get => _trade.CurrentRunFor;
+        set => _trade.CurrentRunFor = value;
+    }
+
+    /// <summary>A fresh, empty run sized to one character's free hold and wallet before buying.</summary>
+    private void StartNewRun(SdeData sde, string characterName, double cargo, double ore, double wallet, bool cleared = false)
+    {
+        RunCharacter = characterName;
+        _trade.CurrentRun = new TradeRun(cargo, ore, wallet, type => sde.Types.TryGetValue(type, out var t) && t.IsOre);
+        RefreshRun(cleared ? "New market data or character, so the run was cleared. Add routes again." : null);
+    }
+
+    private bool _restoring;
+
+    /// <summary>
+    /// Routes and the run are sized to one character's hold and wallet, so picking someone else
+    /// re-sizes them: instantly from this session's market data, or the run alone until Repopulate.
+    /// </summary>
+    private async void RouteCharBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_restoring || !IsLoaded || RouteCharBox.SelectedItem is not CharacterState c || _trade.LastRoutes is not { } last) return;
+        if (last.CharacterId == c.Id && RunCharacter == c.Name) return;
+
+        if (_routeMarket is not null)
+        {
+            await PopulateRoutesAsync(reuseMarket: true);
+            return;
+        }
+
+        // No market data loaded this session (e.g. results restored after a restart): re-size the run now,
+        // and say the routes themselves need a Repopulate.
+        try
+        {
+            if (await _trade.EnsureStaticDataAsync() is not { } sde) return;
+            await _trade.RefreshCharacterAsync(c);
+            var trader = MarketService.Trader(c, await _market.AssetsAsync(c, CancellationToken.None), sde);
+            StartNewRun(sde, c.Name, trader.FreeCargo, trader.FreeOreHold, trader.Wallet, cleared: _trade.CurrentRun?.Items.Count > 0);
+            string owner = _trade.Characters.FirstOrDefault(x => x.Id == last.CharacterId)?.Name ?? "another character";
+            RouteStatus.Foreground = (System.Windows.Media.Brush)FindResource("Warning");
+            RouteStatus.Text = $"The run is now sized for {c.Name}, but these routes were sized for {owner}. " +
+                               $"Press Repopulate to size them for {c.Name}.";
+        }
+        catch (Exception ex) when (ex is EsiException or SignInRequiredException or System.Net.Http.HttpRequestException or InvalidOperationException)
+        {
+            RouteStatus.Text = $"Couldn't read {c.Name}'s hold and wallet: {ex.Message}";
+        }
     }
 
     private void RefreshRun(string? message = null)
@@ -312,6 +384,7 @@ public partial class TradeWindow : Window
             return;
         }
 
+        RunCaption.Text = string.IsNullOrEmpty(RunCharacter) ? "TRADE RUN" : $"TRADE RUN · SIZED FOR {RunCharacter.ToUpperInvariant()}";
         RunHeader.Text = run.SourceStation is long src && run.DestStation is long dst
             ? $"{ShortStation(src)} → {ShortStation(dst)}"
             : "Add routes to plan one trip";

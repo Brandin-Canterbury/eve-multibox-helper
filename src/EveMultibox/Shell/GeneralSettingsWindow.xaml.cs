@@ -18,6 +18,7 @@ public partial class GeneralSettingsWindow : Window
     public GeneralSettingsWindow(App app)
     {
         InitializeComponent();
+        WindowLook.Apply(this);
         _app = app;
 
         LogsFolderBox.Text = app.Config.EveLogsFolder ?? "";

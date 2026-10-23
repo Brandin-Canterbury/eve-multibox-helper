@@ -1,0 +1,61 @@
+# Every push to master that changes the app builds, tests and publishes a GitHub release.
+# Version = <Major>.<Minor> from the project's <Version> plus the workflow run number,
+# e.g. 0.3.17. The latest build is always at:
+#   https://github.com/<owner>/<repo>/releases/latest/download/EveMultibox.exe
+name: Release
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - '.github/workflows/release.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Work out the version
+        id: version
+        shell: pwsh
+        run: |
+          $csproj = Get-Content src/EveMultibox/EveMultibox.csproj -Raw
+          if ($csproj -notmatch '<Version>(\d+)\.(\d+)') { throw 'No <Version> in EveMultibox.csproj' }
+          $version = "$($Matches[1]).$($Matches[2]).${{ github.run_number }}"
+          "version=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Releasing $version"
+
+      - name: Test
+        run: dotnet test tests/EveMultibox.Tests -c Release
+
+      - name: Publish single-file exe
+        shell: pwsh
+        run: |
+          dotnet publish src/EveMultibox -c Release -r win-x64 -p:Version=${{ steps.version.outputs.version }} -o publish
+          Copy-Item publish/EveMultibox.exe EveMultibox.exe
+
+      - name: Create release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "v${{ steps.version.outputs.version }}"
+          gh release create $tag EveMultibox.exe `
+            --target ${{ github.sha }} `
+            --title "EVE Multibox Helper $tag" `
+            --generate-notes `
+            --latest

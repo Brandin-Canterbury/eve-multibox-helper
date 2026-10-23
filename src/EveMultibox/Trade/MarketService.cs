@@ -9,6 +9,20 @@ public enum SearchMode
     WithinJumps,
 }
 
+/// <summary>
+/// Market data loaded for a route search, kept for the session so switching character can
+/// re-size routes without downloading the orders again.
+/// </summary>
+public sealed record MarketCache(SearchMode Mode, bool Safe, IReadOnlyList<long> Stations, MarketSnapshot Market, Dictionary<int, double> Averages)
+{
+    /// <summary>
+    /// True when this data covers exactly the stations a new search needs. Hub-to-hub always does;
+    /// "within N jumps" only if the new character's range reaches the same stations.
+    /// </summary>
+    public bool Covers(SearchMode mode, bool safe, IEnumerable<long> stations) =>
+        Mode == mode && Safe == safe && Stations.ToHashSet().SetEquals(stations);
+}
+
 /// <summary>One route with the destination's daily sales, as saved to disk.</summary>
 public sealed record SavedRoute(RouteCandidate Route, double Daily);
 

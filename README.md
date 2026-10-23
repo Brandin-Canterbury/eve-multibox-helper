@@ -2,6 +2,17 @@
 
 A Windows helper for running several EVE Online clients without clicking in the wrong one.
 
+## Download
+
+**[Download the latest EveMultibox.exe](https://github.com/Brandin-Canterbury/eve-multibox-helper/releases/latest/download/EveMultibox.exe)**: a single file for 64-bit Windows, with nothing else to install. All versions and their notes are on the [releases page](https://github.com/Brandin-Canterbury/eve-multibox-helper/releases/latest).
+
+Windows SmartScreen may warn about an unrecognised app the first time, because the exe isn't code-signed. Choose "More info" → "Run anyway".
+
+Every change pushed to `master` is tested and published as a new release automatically.
+
+## Features
+
+- **Trade**: sign in with EVE SSO, then find hub-to-hub or nearby trade routes sized to your hold and wallet, plan multi-item runs, and find the best place to sell what you own. A guided widget walks you through each step.
 - **Client colors and labels**: every EVE window gets a click-through colored border and a name tag, such as "MINER 2". The active client gets a thicker border.
 - **Thumbnail switcher**: live previews of each client. Click one to bring that client to the front. Optional per-client focus hotkeys, such as Ctrl+Alt+1.
 - **Favorites toolbox**: buttons for the EVE shortcuts you use most. Click into a client, then click a button. The header always shows which client will receive the key.

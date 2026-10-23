@@ -225,7 +225,7 @@
                     <Border DockPanel.Dock="Top" Style="{StaticResource FilterBar}">
                         <WrapPanel>
                             <TextBlock Text="For" VerticalAlignment="Center" Margin="0,0,8,0" />
-                            <ComboBox x:Name="RouteCharBox" Width="180" Margin="0,0,18,0" />
+                            <ComboBox x:Name="RouteCharBox" Width="180" Margin="0,0,18,0" SelectionChanged="RouteCharBox_SelectionChanged" />
                             <RadioButton x:Name="RouteHubsRadio" Content="Hub to hub" IsChecked="True"
                                          VerticalAlignment="Center" Margin="0,0,14,0" GroupName="RouteMode" />
                             <RadioButton x:Name="RouteJumpsRadio" Content="Within" VerticalAlignment="Center" GroupName="RouteMode" />
@@ -249,7 +249,7 @@
                             Background="{StaticResource Panel}" BorderBrush="{StaticResource Edge}" BorderThickness="1">
                         <DockPanel>
                             <StackPanel DockPanel.Dock="Top">
-                                <TextBlock Text="TRADE RUN" Style="{StaticResource Caption}" />
+                                <TextBlock x:Name="RunCaption" Text="TRADE RUN" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" />
                                 <TextBlock x:Name="RunHeader" FontWeight="Bold" FontSize="15" TextWrapping="Wrap" Margin="0,4,0,10"
                                            Text="Add routes to plan one trip" />
                                 <DockPanel>

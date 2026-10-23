@@ -65,7 +65,7 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Button name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="*" />
                             <DataGridTextColumn Header="Keys" Binding="{Binding Keys, UpdateSourceTrigger=PropertyChanged}" Width="130" />
-                            <DataGridCheckBoxColumn Header="Valid" Binding="{Binding IsValid, Mode=OneWay}" IsReadOnly="True" Width="60" />
+                            <DataGridCheckBoxColumn ElementStyle="{StaticResource GridCheck}" EditingElementStyle="{StaticResource GridCheckEdit}" Header="Valid" Binding="{Binding IsValid, Mode=OneWay}" IsReadOnly="True" Width="60" />
                             <DataGridTextColumn Header="Character (blank = all)" Binding="{Binding Character, UpdateSourceTrigger=PropertyChanged}" Width="190" />
                         </DataGrid.Columns>
                     </DataGrid>
@@ -100,15 +100,15 @@
                     <DataGrid x:Name="RulesGrid" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="True"
                               HeadersVisibility="Column" SelectionMode="Single">
                         <DataGrid.Columns>
-                            <DataGridCheckBoxColumn Header="On" Binding="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}" Width="44" />
+                            <DataGridCheckBoxColumn ElementStyle="{StaticResource GridCheck}" EditingElementStyle="{StaticResource GridCheckEdit}" Header="On" Binding="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}" Width="44" />
                             <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="150" />
                             <DataGridComboBoxColumn x:Name="RuleSourceColumn" Header="Log" SelectedItemBinding="{Binding Source}" Width="70" />
                             <DataGridTextColumn Header="Line type" Binding="{Binding LineType, UpdateSourceTrigger=PropertyChanged}" Width="80" />
                             <DataGridTextColumn Header="Channel" Binding="{Binding Channel, UpdateSourceTrigger=PropertyChanged}" Width="80" />
                             <DataGridTextColumn Header="Pattern" Binding="{Binding Pattern, UpdateSourceTrigger=PropertyChanged}" Width="*" FontFamily="Consolas" />
                             <DataGridTextColumn Header="Cooldown s" Binding="{Binding CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" Width="84" />
-                            <DataGridCheckBoxColumn Header="Sound" Binding="{Binding Sound, UpdateSourceTrigger=PropertyChanged}" Width="56" />
-                            <DataGridCheckBoxColumn Header="Valid" Binding="{Binding IsValid, Mode=OneWay}" IsReadOnly="True" Width="50" />
+                            <DataGridCheckBoxColumn ElementStyle="{StaticResource GridCheck}" EditingElementStyle="{StaticResource GridCheckEdit}" Header="Sound" Binding="{Binding Sound, UpdateSourceTrigger=PropertyChanged}" Width="56" />
+                            <DataGridCheckBoxColumn ElementStyle="{StaticResource GridCheck}" EditingElementStyle="{StaticResource GridCheckEdit}" Header="Valid" Binding="{Binding IsValid, Mode=OneWay}" IsReadOnly="True" Width="50" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>
@@ -152,7 +152,7 @@
                     <DataGrid x:Name="SyncGrid" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                               HeadersVisibility="Column">
                         <DataGrid.Columns>
-                            <DataGridCheckBoxColumn Header="Overwrite" Binding="{Binding Selected, UpdateSourceTrigger=PropertyChanged}" Width="80" />
+                            <DataGridCheckBoxColumn ElementStyle="{StaticResource GridCheck}" EditingElementStyle="{StaticResource GridCheckEdit}" Header="Overwrite" Binding="{Binding Selected, UpdateSourceTrigger=PropertyChanged}" Width="80" />
                             <DataGridTextColumn Header="Type" Binding="{Binding KindText}" IsReadOnly="True" Width="90" />
                             <DataGridTextColumn Header="Name" Binding="{Binding DisplayName}" IsReadOnly="True" Width="*" />
                             <DataGridTextColumn Header="ID" Binding="{Binding Id}" IsReadOnly="True" Width="110" />

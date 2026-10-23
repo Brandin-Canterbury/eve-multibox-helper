@@ -35,6 +35,7 @@ public partial class ActionWidgetWindow : Window
     public ActionWidgetWindow(App app, ActionPlan plan, TradeService trade, ClientTracker tracker)
     {
         InitializeComponent();
+        Shell.WindowLook.Apply(this);
         _app = app;
         _plan = plan;
         _trade = trade;

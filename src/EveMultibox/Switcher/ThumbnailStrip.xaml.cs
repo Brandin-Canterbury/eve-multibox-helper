@@ -46,6 +46,7 @@ public partial class ThumbnailStrip : Window
     public ThumbnailStrip(ClientTracker tracker, AppConfig config, AlertCenter alerts)
     {
         InitializeComponent();
+        Shell.WindowLook.Apply(this);
         _tracker = tracker;
         _config = config;
         _alerts = alerts;

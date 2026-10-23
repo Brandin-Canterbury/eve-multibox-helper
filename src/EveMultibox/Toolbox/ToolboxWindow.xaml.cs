@@ -27,6 +27,7 @@ public partial class ToolboxWindow : Window
     public ToolboxWindow(ClientTracker tracker, AppConfig config, KeySender sender)
     {
         InitializeComponent();
+        Shell.WindowLook.Apply(this);
         _tracker = tracker;
         _config = config;
         _sender = sender;

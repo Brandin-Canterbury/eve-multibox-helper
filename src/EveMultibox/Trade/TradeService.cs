@@ -47,6 +47,9 @@ public sealed class TradeService
     /// <summary>The trade run being planned in the Trade Routes tab (kept while the helper runs).</summary>
     public TradeRun? CurrentRun { get; set; }
 
+    /// <summary>The character whose hold and wallet <see cref="CurrentRun"/> is sized for.</summary>
+    public string? CurrentRunFor { get; set; }
+
     private readonly ResultsStore _results = new(ResultsStore.DefaultPath);
     private bool _resultsLoaded;
     private SearchResults? _lastRoutes;

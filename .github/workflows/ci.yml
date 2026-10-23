@@ -1,0 +1,20 @@
+# Builds and tests pull requests and branches other than master (master is covered by the release workflow).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches-ignore: [master]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build and test
+        run: dotnet test tests/EveMultibox.Tests -c Release
