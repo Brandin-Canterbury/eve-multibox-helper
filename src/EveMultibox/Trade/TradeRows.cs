@@ -40,6 +40,15 @@ public sealed record PnlLine(string Label, string Value, Tone Tone = Tone.Normal
     public static PnlLine Note(string text, Tone tone = Tone.Dim) => new("", text, tone);
 }
 
+/// <summary>Narrows hub-to-hub routes to one direction, e.g. only Amarr → Jita.</summary>
+public static class RouteFilter
+{
+    /// <param name="from">Buy station to keep, or null for any.</param>
+    /// <param name="to">Sell station to keep, or null for any.</param>
+    public static bool Matches(RouteCandidate route, long? from, long? to) =>
+        (from is null || route.SourceStation == from) && (to is null || route.DestStation == to);
+}
+
 /// <summary>One trade route row in the Trade Routes grid.</summary>
 public sealed class RouteRow : ObservableObject
 {

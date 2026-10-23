@@ -223,18 +223,31 @@
             <TabItem Header="Trade Routes">
                 <DockPanel Margin="14">
                     <Border DockPanel.Dock="Top" Style="{StaticResource FilterBar}">
-                        <WrapPanel>
-                            <TextBlock Text="For" VerticalAlignment="Center" Margin="0,0,8,0" />
-                            <ComboBox x:Name="RouteCharBox" Width="180" Margin="0,0,18,0" SelectionChanged="RouteCharBox_SelectionChanged" />
-                            <RadioButton x:Name="RouteHubsRadio" Content="Hub to hub" IsChecked="True"
-                                         VerticalAlignment="Center" Margin="0,0,14,0" GroupName="RouteMode" />
-                            <RadioButton x:Name="RouteJumpsRadio" Content="Within" VerticalAlignment="Center" GroupName="RouteMode" />
-                            <TextBox x:Name="RouteRadiusBox" Width="40" Margin="6,0" TextAlignment="Center" />
-                            <TextBlock Text="jumps" VerticalAlignment="Center" Margin="0,0,18,0" />
-                            <CheckBox x:Name="RouteSafeBox" Content="Avoid low-sec" VerticalAlignment="Center" Margin="0,0,18,0" />
-                            <Button x:Name="PopulateRoutesButton" Content="Populate" Style="{StaticResource Primary}" Click="PopulateRoutes_Click" />
-                            <TextBlock x:Name="RouteAgeText" Foreground="{StaticResource Warning}" VerticalAlignment="Center" Margin="12,0,0,0" />
-                        </WrapPanel>
+                        <StackPanel>
+                            <WrapPanel>
+                                <TextBlock Text="For" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <ComboBox x:Name="RouteCharBox" Width="180" Margin="0,0,18,0" SelectionChanged="RouteCharBox_SelectionChanged" />
+                                <RadioButton x:Name="RouteHubsRadio" Content="Hub to hub" IsChecked="True" Checked="RouteMode_Changed"
+                                             VerticalAlignment="Center" Margin="0,0,14,0" GroupName="RouteMode" />
+                                <RadioButton x:Name="RouteJumpsRadio" Content="Within" Checked="RouteMode_Changed"
+                                             VerticalAlignment="Center" GroupName="RouteMode" />
+                                <TextBox x:Name="RouteRadiusBox" Width="40" Margin="6,0" TextAlignment="Center" />
+                                <TextBlock Text="jumps" VerticalAlignment="Center" Margin="0,0,18,0" />
+                                <CheckBox x:Name="RouteSafeBox" Content="Avoid low-sec" VerticalAlignment="Center" Margin="0,0,18,0" />
+                                <Button x:Name="PopulateRoutesButton" Content="Populate" Style="{StaticResource Primary}" Click="PopulateRoutes_Click" />
+                                <TextBlock x:Name="RouteAgeText" Foreground="{StaticResource Warning}" VerticalAlignment="Center" Margin="12,0,0,0" />
+                            </WrapPanel>
+                            <!-- Hub to hub only: narrow the list to one direction, e.g. Amarr → Jita for the trip back. -->
+                            <StackPanel x:Name="HubFilterRow" Orientation="Horizontal" Margin="0,10,0,0">
+                                <TextBlock Text="FROM" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <ComboBox x:Name="RouteFromBox" Width="150" SelectionChanged="RouteFilter_Changed" />
+                                <Button Content="⇄" FontFamily="Segoe UI Symbol" Padding="10,2" Margin="8,0" Click="SwapHubs_Click"
+                                        ToolTip="Swap From and To (for the trip back)" />
+                                <TextBlock Text="TO" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <ComboBox x:Name="RouteToBox" Width="150" SelectionChanged="RouteFilter_Changed" />
+                                <TextBlock x:Name="RouteFilterCount" Style="{StaticResource Dim}" VerticalAlignment="Center" Margin="14,0,0,0" />
+                            </StackPanel>
+                        </StackPanel>
                     </Border>
 
                     <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">

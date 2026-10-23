@@ -62,3 +62,8 @@ Settings are stored in `%AppData%\EveMultibox\config.json`. Use `--config <path>
 - If EVE runs as administrator, Windows blocks keys from this tool unless it runs as administrator too.
 - **Alerts:** EVE's chat logs record messages only, not who enters Local, so "neutral in Local" can't be detected from logs. Add an intel channel rule with your system names instead. Chat rules need EVE's "Log chat to file" setting turned on. Rules are case-insensitive regexes matched against the line with EVE's markup removed.
 - **UI sync:** close every EVE client first; EVE saves settings when it exits and would overwrite the copy. Character names come from your log files. A character that has never logged in on this PC shows as "Unknown character", identified by its ID. Backups go to `%AppData%\EveMultibox\settings-backups`.
+- **Trade return runs:** in hub-to-hub mode, the From / To filters narrow routes to one direction. After a Jita → Amarr run, press ⇄ to see Amarr → Jita; Auto-fill then uses only those routes.
+
+## License
+
+[MIT](LICENSE). EVE Online and related names are trademarks of CCP hf.; this project isn't affiliated with or endorsed by CCP.

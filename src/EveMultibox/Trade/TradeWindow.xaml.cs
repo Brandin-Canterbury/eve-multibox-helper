@@ -74,6 +74,7 @@ public partial class TradeWindow : Window
             {
                 _restoring = false;
             }
+            await BuildHubFiltersAsync();
             await BuildHubButtonsAsync();
         };
     }
@@ -283,6 +284,7 @@ public partial class TradeWindow : Window
 
             var rows = routes.Select(r => new RouteRow(r.Route, s.Sde, _trade.CachedStationName) { Daily = r.Daily }).ToList();
             RoutesGrid.ItemsSource = rows;
+            ApplyRouteFilter();
             RouteStatus.Text = rows.Count == 0
                 ? $"No profitable routes with real demand right now for {s.Character.Name}'s hold and wallet. Try another mode or a bigger ship."
                 : $"{rows.Count} routes for {s.Character.Name} (units capped at ~{DaysToSell} days of sales at the destination). " +
@@ -309,6 +311,57 @@ public partial class TradeWindow : Window
         {
             PopulateRoutesButton.IsEnabled = true;
         }
+    }
+
+    // ---- From / To hub filter (hub to hub only) ----
+
+    private sealed record HubChoice(long? StationId, string Name)
+    {
+        public override string ToString() => Name;
+    }
+
+    private async Task BuildHubFiltersAsync()
+    {
+        var hubs = _app.Config.Trade.HubStationIds;
+        await _trade.StationNamesAsync(hubs);
+        var choices = new List<HubChoice> { new(null, "Any hub") };
+        choices.AddRange(hubs.Select(h => new HubChoice(h, ShortStation(h))));
+        RouteFromBox.ItemsSource = choices;
+        RouteToBox.ItemsSource = choices.ToList();
+        RouteFromBox.SelectedIndex = RouteToBox.SelectedIndex = 0;
+        ApplyRouteFilter();
+    }
+
+    private void RouteFilter_Changed(object sender, SelectionChangedEventArgs e) => ApplyRouteFilter();
+
+    private void RouteMode_Changed(object sender, RoutedEventArgs e)
+    {
+        if (IsLoaded) ApplyRouteFilter();
+    }
+
+    /// <summary>Swaps From and To: after a Jita → Amarr run, one click shows Amarr → Jita.</summary>
+    private void SwapHubs_Click(object sender, RoutedEventArgs e)
+    {
+        int from = RouteFromBox.SelectedIndex;
+        RouteFromBox.SelectedIndex = RouteToBox.SelectedIndex;
+        RouteToBox.SelectedIndex = from;
+    }
+
+    /// <summary>Shows only routes in the chosen direction. Applies to hub-to-hub results only.</summary>
+    private void ApplyRouteFilter()
+    {
+        bool hubMode = RouteHubsRadio.IsChecked == true;
+        HubFilterRow.IsEnabled = hubMode;
+        HubFilterRow.Opacity = hubMode ? 1 : 0.4;
+        if (RoutesGrid.ItemsSource is not IEnumerable<RouteRow> all) return;
+
+        long? from = hubMode ? (RouteFromBox.SelectedItem as HubChoice)?.StationId : null;
+        long? to = hubMode ? (RouteToBox.SelectedItem as HubChoice)?.StationId : null;
+        var view = System.Windows.Data.CollectionViewSource.GetDefaultView(RoutesGrid.ItemsSource);
+        view.Filter = from is null && to is null ? null : o => o is RouteRow r && RouteFilter.Matches(r.Route, from, to);
+
+        int total = all.Count(), shown = RoutesGrid.Items.Count;
+        RouteFilterCount.Text = shown == total ? $"{total} routes" : $"Showing {shown} of {total} routes";
     }
 
     private void RoutesGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -431,8 +484,10 @@ public partial class TradeWindow : Window
 
     private void AutoFill_Click(object sender, RoutedEventArgs e)
     {
-        if (_trade.CurrentRun is not { } run || RoutesGrid.ItemsSource is not IEnumerable<RouteRow> rows) return;
-        int added = run.AutoFill(rows.Select(r => r.Route));
+        if (_trade.CurrentRun is not { } run) return;
+        // Only the routes the From/To filter is showing, so a return run is packed with return items.
+        var visible = RoutesGrid.Items.OfType<RouteRow>().Select(r => r.Route).ToList();
+        int added = run.AutoFill(visible);
         RefreshRun(added == 0 ? "Nothing more fits profitably on this run's route." : $"Added {added} item(s).");
     }
 
