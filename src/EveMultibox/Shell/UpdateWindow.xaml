@@ -1,7 +1,7 @@
 <Window x:Class="EveMultibox.Shell.UpdateWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="EVE Multibox Helper update"
+        Title="Phoenix's Eve Helper update"
         WindowStyle="None" ResizeMode="NoResize" Width="460" SizeToContent="Height"
         Topmost="True" ShowInTaskbar="True" WindowStartupLocation="CenterScreen"
         Background="#1E1E22" BorderBrush="#4DA6FF" BorderThickness="1" Foreground="#DDDDE4">

@@ -394,6 +394,173 @@
                     </DataGrid>
                 </DockPanel>
             </TabItem>
+            <!-- ================= My Orders ================= -->
+            <TabItem Header="My Orders">
+                <DockPanel Margin="14">
+                    <Border DockPanel.Dock="Top" Style="{StaticResource FilterBar}">
+                        <WrapPanel>
+                            <TextBlock Text="For" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <ComboBox x:Name="OrdersCharBox" Width="180" Margin="0,0,18,0" SelectionChanged="OrdersCharBox_SelectionChanged" />
+                            <Button x:Name="RefreshOrdersButton" Content="Refresh" Style="{StaticResource Primary}" Click="RefreshOrders_Click" />
+                            <TextBlock x:Name="OrdersAgeText" Style="{StaticResource Dim}" VerticalAlignment="Center" Margin="12,0,0,0" />
+                        </WrapPanel>
+                    </Border>
+
+                    <!-- Totals across the shown orders. -->
+                    <UniformGrid DockPanel.Dock="Top" Columns="4" Margin="0,0,0,10">
+                        <Border Style="{StaticResource FilterBar}" Margin="0,0,6,0">
+                            <StackPanel>
+                                <TextBlock Text="SELL ORDERS" Style="{StaticResource Caption}" />
+                                <TextBlock x:Name="SellOrdersValue" FontSize="18" FontWeight="Bold" Foreground="{StaticResource Positive}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource FilterBar}" Margin="6,0,6,0">
+                            <StackPanel>
+                                <TextBlock Text="BUY ORDERS" Style="{StaticResource Caption}" />
+                                <TextBlock x:Name="BuyOrdersValue" FontSize="18" FontWeight="Bold" Foreground="{StaticResource Warning}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource FilterBar}" Margin="6,0,6,0">
+                            <StackPanel>
+                                <TextBlock Text="NEED ATTENTION" Style="{StaticResource Caption}" />
+                                <TextBlock x:Name="OrdersAttention" FontSize="18" FontWeight="Bold" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource FilterBar}" Margin="6,0,0,0">
+                            <StackPanel>
+                                <TextBlock Text="ORDER SLOTS" Style="{StaticResource Caption}" />
+                                <TextBlock x:Name="OrderSlotsText" FontSize="18" FontWeight="Bold" />
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <TextBlock x:Name="OrdersStatus" DockPanel.Dock="Bottom" Style="{StaticResource Dim}" Margin="0,10,0,0" TextWrapping="Wrap"
+                               Text="Press Refresh to load open orders. EVE refreshes this list about every 20 minutes." />
+
+                    <DataGrid x:Name="OrdersGrid" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
+                              SelectionMode="Single" CanUserSortColumns="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="SIDE" Binding="{Binding Side}" Width="60">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource Positive}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SideTone}" Value="Warning">
+                                                <Setter Property="Foreground" Value="{StaticResource Warning}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="ITEM" Binding="{Binding Item}" Width="*" MinWidth="160" ElementStyle="{StaticResource Ellipsis}" />
+                            <DataGridTextColumn Header="STATION" Binding="{Binding Station}" Width="220" ElementStyle="{StaticResource Ellipsis}" />
+                            <DataGridTextColumn Header="PRICE" Binding="{Binding PriceText}" SortMemberPath="Price" Width="100" ElementStyle="{StaticResource Num}" />
+                            <DataGridTextColumn Header="LEFT / TOTAL" Binding="{Binding QuantityText}" SortMemberPath="Remaining" Width="120" ElementStyle="{StaticResource Num}" />
+                            <DataGridTextColumn Header="VALUE" Binding="{Binding ValueText}" SortMemberPath="Value" Width="90" ElementStyle="{StaticResource Gain}" />
+                            <DataGridTextColumn Header="ESCROW" Binding="{Binding EscrowText}" Width="80" ElementStyle="{StaticResource Num}" />
+                            <DataGridTextColumn Header="EXPIRES IN" Binding="{Binding ExpiresText}" SortMemberPath="Expires" Width="95" ElementStyle="{StaticResource Num}" />
+                            <DataGridTextColumn Header="STANDING" Binding="{Binding Standing}" Width="150">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource TextDim}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding StandingTone}" Value="Positive">
+                                                <Setter Property="Foreground" Value="{StaticResource Positive}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding StandingTone}" Value="Negative">
+                                                <Setter Property="Foreground" Value="{StaticResource Negative}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding StandingTone}" Value="Warning">
+                                                <Setter Property="Foreground" Value="{StaticResource Warning}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <!-- ================= P&L ================= -->
+            <TabItem Header="P&amp;L">
+                <DockPanel Margin="14">
+                    <Border DockPanel.Dock="Top" Style="{StaticResource FilterBar}">
+                        <WrapPanel>
+                            <TextBlock Text="For" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <ComboBox x:Name="PnlCharBox" Width="180" Margin="0,0,18,0" SelectionChanged="PnlFilter_Changed" />
+                            <TextBlock Text="Period" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <ComboBox x:Name="PnlPeriodBox" Width="130" Margin="0,0,18,0" SelectionChanged="PnlFilter_Changed" />
+                            <Button x:Name="SyncPnlButton" Content="Sync wallet" Style="{StaticResource Primary}" Click="SyncPnl_Click"
+                                    ToolTip="Fetch new transactions and fees from EVE and add them to the saved history" />
+                            <TextBlock x:Name="PnlSyncText" Style="{StaticResource Dim}" VerticalAlignment="Center" Margin="12,0,0,0" />
+                        </WrapPanel>
+                    </Border>
+
+                    <UniformGrid DockPanel.Dock="Top" Columns="6" Margin="0,0,0,10">
+                        <Border Style="{StaticResource FilterBar}" Margin="0,0,5,0">
+                            <StackPanel>
+                                <TextBlock Text="SALES" Style="{StaticResource Caption}" />
+                                <TextBlock x:Name="PnlSales" FontSize="17" FontWeight="Bold" Foreground="{StaticResource Positive}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource FilterBar}" Margin="5,0,5,0">
+                            <StackPanel>
+                                <TextBlock Text="PURCHASES" Style="{StaticResource Caption}" />
+                                <TextBlock x:Name="PnlPurchases" FontSize="17" FontWeight="Bold" Foreground="{StaticResource Negative}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource FilterBar}" Margin="5,0,5,0">
+                            <StackPanel>
+                                <TextBlock Text="SALES TAX" Style="{StaticResource Caption}" />
+                                <TextBlock x:Name="PnlTax" FontSize="17" FontWeight="Bold" Foreground="{StaticResource Negative}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource FilterBar}" Margin="5,0,5,0">
+                            <StackPanel>
+                                <TextBlock Text="BROKER FEES" Style="{StaticResource Caption}" />
+                                <TextBlock x:Name="PnlBroker" FontSize="17" FontWeight="Bold" Foreground="{StaticResource Negative}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource FilterBar}" Margin="5,0,5,0">
+                            <StackPanel>
+                                <TextBlock Text="TRADING PROFIT" Style="{StaticResource Caption}" />
+                                <TextBlock x:Name="PnlTrading" FontSize="17" FontWeight="Bold" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource FilterBar}" Margin="5,0,0,0" BorderBrush="{StaticResource Accent}">
+                            <StackPanel>
+                                <TextBlock Text="NET PROFIT" Style="{StaticResource Caption}" />
+                                <TextBlock x:Name="PnlNet" FontSize="17" FontWeight="Bold" />
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <TextBlock x:Name="PnlStatus" DockPanel.Dock="Bottom" Style="{StaticResource Dim}" Margin="0,10,0,0" TextWrapping="Wrap"
+                               Text="Profit uses each item's average purchase cost. Sales of items bought before your saved history have no known cost: they count in sales but not in profit (shown in yellow)." />
+
+                    <DataGrid x:Name="PnlGrid" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
+                              SelectionMode="Single" CanUserSortColumns="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="ITEM" Binding="{Binding Item}" Width="*" MinWidth="160" ElementStyle="{StaticResource Ellipsis}" />
+                            <DataGridTextColumn Header="BOUGHT" Binding="{Binding Row.BoughtQty, StringFormat=N0}" SortMemberPath="Row.BoughtQty" Width="85" ElementStyle="{StaticResource Num}" />
+                            <DataGridTextColumn Header="AVG BUY" Binding="{Binding Row.AvgBuy, StringFormat=N2}" SortMemberPath="Row.AvgBuy" Width="95" ElementStyle="{StaticResource Num}" />
+                            <DataGridTextColumn Header="SOLD" Binding="{Binding Row.SoldQty, StringFormat=N0}" SortMemberPath="Row.SoldQty" Width="85" ElementStyle="{StaticResource Num}" />
+                            <DataGridTextColumn Header="AVG SELL" Binding="{Binding Row.AvgSell, StringFormat=N2}" SortMemberPath="Row.AvgSell" Width="95" ElementStyle="{StaticResource Num}" />
+                            <DataGridTextColumn Header="SALES" Binding="{Binding SalesText}" SortMemberPath="Row.SoldValue" Width="90" ElementStyle="{StaticResource Gain}" />
+                            <DataGridTextColumn Header="COST OF SOLD" Binding="{Binding CostText}" SortMemberPath="Row.CostOfSold" Width="105" ElementStyle="{StaticResource Cost}" />
+                            <DataGridTextColumn Header="PROFIT" Binding="{Binding ProfitText}" SortMemberPath="Row.Profit" Width="95" ElementStyle="{StaticResource Money}" />
+                            <DataGridTextColumn Header="NO COST KNOWN" Binding="{Binding UnknownText}" SortMemberPath="Row.UnknownCostQty" Width="120">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Num}">
+                                        <Setter Property="Foreground" Value="{StaticResource Warning}" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
         </TabControl>
     </DockPanel>
 </Window>

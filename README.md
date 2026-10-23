@@ -1,4 +1,4 @@
-# EVE Multibox Helper
+# Phoenix's Eve Helper
 
 A Windows helper for running several EVE Online clients without clicking in the wrong one.
 

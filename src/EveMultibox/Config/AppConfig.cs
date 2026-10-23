@@ -15,12 +15,24 @@ public sealed class AppConfig
     public TradeSettings Trade { get; set; } = new();
     public WidgetSettings Widget { get; set; } = new();
     public UpdateSettings Updates { get; set; } = new();
+    public NotificationSettings Notifications { get; set; } = new();
 
     /// <summary>EVE's logs folder, used by alerts and character names. Blank means Documents\EVE\logs.</summary>
     public string? EveLogsFolder { get; set; }
 
-    /// <summary>The clients strip (thumbnails, ⚙ and ★). Hiding it leaves the borders and name tags alone.</summary>
-    public bool ShowMultiboxer { get; set; } = true;
+    /// <summary>
+    /// The clients strip (thumbnails, ⚙ and ★). Off by default; it also only shows with
+    /// <see cref="MinClientsForMultiboxer"/> or more clients. Hiding it leaves borders and name tags alone.
+    /// </summary>
+    public bool ShowMultiboxer { get; set; }
+
+    /// <summary>The clients strip is for multiboxing, so with fewer clients than this it stays hidden.</summary>
+    public const int MinClientsForMultiboxer = 2;
+
+    /// <summary>Settings format version, for one-time upgrades of older config files.</summary>
+    public int ConfigVersion { get; set; }
+
+    public const int CurrentConfigVersion = 2;
 
     /// <summary>Hide the ☰ button, clients strip and toolbox while no EVE client is running (the tray icon stays).</summary>
     public bool AutoHideWithoutClients { get; set; } = true;
@@ -44,6 +56,10 @@ public sealed class AppConfig
         if (EveLogsFolder is null && !string.IsNullOrWhiteSpace(Alerts.LogsFolder)) EveLogsFolder = Alerts.LogsFolder;
         Alerts.LogsFolder = null;
 #pragma warning restore CS0618
+
+        // Version 2: the clients strip now starts off (it was on by default before).
+        if (ConfigVersion < 2) ShowMultiboxer = false;
+        ConfigVersion = CurrentConfigVersion;
     }
 
     /// <summary>Distinct, high-contrast colors handed out to newly seen characters.</summary>
@@ -78,7 +94,7 @@ public sealed class AppConfig
 
     public static AppConfig CreateDefault()
     {
-        var config = new AppConfig();
+        var config = new AppConfig { ConfigVersion = CurrentConfigVersion };
         // These match EVE's default shortcuts. Players often rebind, so the settings window reminds the
         // user to check them against Esc > Shortcuts in game.
         config.Favorites.Add(new FavoriteCommand { Name = "High slot 1", Keys = "F1" });
@@ -169,6 +185,42 @@ public sealed class WidgetSettings
     public string? UndockKey { get; set; }
 
     public WindowSpot? Position { get; set; }
+}
+
+/// <summary>
+/// Windows notifications about market orders and the wallet. Checks follow ESI's own refresh of a
+/// character's orders (about every 20 minutes). Templates use tokens like {item} and {total}.
+/// </summary>
+public sealed class NotificationSettings
+{
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>Some of a sell order sold, or some of a buy order was filled.</summary>
+    public bool OrderFills { get; set; } = true;
+
+    /// <summary>An order finished: sold out, filled, expired or cancelled.</summary>
+    public bool OrderEnded { get; set; } = true;
+
+    public bool WalletChanges { get; set; }
+
+    /// <summary>Smallest wallet change worth a notification, in ISK.</summary>
+    public double MinWalletChange { get; set; } = 1_000_000;
+
+    /// <summary>Add the character's new wallet balance at the end of each notification.</summary>
+    public bool AppendBalance { get; set; } = true;
+
+    /// <summary>Characters to leave out (by character ID).</summary>
+    public List<long> MutedCharacters { get; set; } = new();
+
+    public string SoldTemplate { get; set; } = DefaultSold;
+    public string BoughtTemplate { get; set; } = DefaultBought;
+    public string EndedTemplate { get; set; } = DefaultEnded;
+    public string WalletTemplate { get; set; } = DefaultWallet;
+
+    public const string DefaultSold = "{character} sold {qty} × {item} for {total} · {remaining} left";
+    public const string DefaultBought = "{character} bought {qty} × {item} for {total} · {remaining} still wanted";
+    public const string DefaultEnded = "{character}'s {side} order for {item} {state}";
+    public const string DefaultWallet = "{character}'s wallet {change} → {balance}";
 }
 
 public sealed class UpdateSettings

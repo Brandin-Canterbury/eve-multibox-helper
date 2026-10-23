@@ -31,10 +31,26 @@ public sealed class ShellTests : IDisposable
     }
 
     [Fact]
-    public void NewConfigShowsMultiboxerAndUsesDefaultButtonSpot()
+    public void OlderConfigsGetTheClientsStripSwitchedOffOnce()
+    {
+        string path = Path.Combine(_dir, "old.json");
+        File.WriteAllText(path, """{ "showMultiboxer": true }""");
+        var store = new ConfigStore(path);
+        var config = store.Load();
+        Assert.False(config.ShowMultiboxer);
+        Assert.Equal(AppConfig.CurrentConfigVersion, config.ConfigVersion);
+
+        // Turning it back on afterwards sticks: the upgrade only happens once.
+        config.ShowMultiboxer = true;
+        store.Save(config);
+        Assert.True(store.Load().ShowMultiboxer);
+    }
+
+    [Fact]
+    public void NewConfigStartsWithTheClientsStripOff()
     {
         var config = AppConfig.CreateDefault();
-        Assert.True(config.ShowMultiboxer);
+        Assert.False(config.ShowMultiboxer);
         Assert.Null(config.MenuButtonPosition);
         Assert.Null(config.EveLogsFolder);
     }

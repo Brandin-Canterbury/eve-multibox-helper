@@ -1,7 +1,7 @@
 <Window x:Class="EveMultibox.Shell.MenuButtonWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="EVE Multibox Helper menu"
+        Title="Phoenix's Eve Helper menu"
         WindowStyle="None" ResizeMode="NoResize" SizeToContent="WidthAndHeight"
         Topmost="True" ShowInTaskbar="False" ShowActivated="False"
         AllowsTransparency="True" Background="Transparent">
@@ -28,6 +28,10 @@
                                 <Trigger Property="IsPressed" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{StaticResource ControlPressed}" />
                                 </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.4" />
+                                    <Setter Property="Cursor" Value="Arrow" />
+                                </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Setter.Value>
@@ -39,7 +43,7 @@
     <Grid>
         <Border x:Name="Face" Width="40" Height="40" Cursor="Hand"
                 Background="{StaticResource Control}" BorderBrush="{StaticResource Edge}" BorderThickness="1"
-                ToolTip="EVE Multibox Helper · hold Alt and drag to move"
+                ToolTip="Phoenix's Eve Helper · hold Alt and drag to move"
                 MouseLeftButtonDown="Face_MouseLeftButtonDown" MouseLeftButtonUp="Face_MouseLeftButtonUp"
                 MouseEnter="Face_MouseEnter" MouseLeave="Face_MouseLeave">
             <!-- Hamburger icon -->
@@ -55,9 +59,10 @@
             <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Edge}" BorderThickness="1"
                     Padding="4" MinWidth="200">
                 <StackPanel>
-                    <TextBlock Text="EVE MULTIBOX HELPER" Foreground="{StaticResource TextDim}" FontSize="10"
+                    <TextBlock Text="PHOENIX'S EVE HELPER" Foreground="{StaticResource TextDim}" FontSize="10"
                                FontWeight="SemiBold" Margin="8,4,8,6" />
-                    <Button Style="{StaticResource MenuRow}" Click="Multiboxer_Click"
+                    <Button x:Name="MultiboxerRow" Style="{StaticResource MenuRow}" Click="Multiboxer_Click"
+                            ToolTipService.ShowOnDisabled="True"
                             ToolTip="Show or hide the clients window. Borders and name tags stay.">
                         <DockPanel>
                             <TextBlock x:Name="MultiboxerCheck" Width="20" Foreground="{StaticResource Accent}" FontWeight="Bold" />
@@ -69,6 +74,13 @@
                         <DockPanel>
                             <TextBlock Text="⇄" Width="20" FontFamily="Segoe UI Symbol" Foreground="{StaticResource TextDim}" />
                             <TextBlock Text="Trade" />
+                        </DockPanel>
+                    </Button>
+                    <Button Style="{StaticResource MenuRow}" Click="Notifications_Click"
+                            ToolTip="Windows notifications when your market orders sell or end">
+                        <DockPanel>
+                            <TextBlock Text="🔔" Width="20" FontFamily="Segoe UI Symbol" Foreground="{StaticResource TextDim}" />
+                            <TextBlock Text="Notifications" />
                         </DockPanel>
                     </Button>
                     <Button Style="{StaticResource MenuRow}" Click="Settings_Click">

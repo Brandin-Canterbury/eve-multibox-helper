@@ -232,10 +232,10 @@ public sealed class EsiAuth
     private static async Task RespondAsync(HttpListenerResponse response, bool ok)
     {
         string message = ok
-            ? "Signed in. You can close this tab and go back to EVE Multibox Helper."
+            ? "Signed in. You can close this tab and go back to Phoenix's Eve Helper."
             : "Sign-in didn't complete. Close this tab and try again from the helper.";
         byte[] html = Encoding.UTF8.GetBytes(
-            "<!doctype html><meta charset=utf-8><title>EVE Multibox Helper</title>" +
+            "<!doctype html><meta charset=utf-8><title>Phoenix's Eve Helper</title>" +
             "<body style=\"background:#1e1e22;color:#dddde4;font:16px Segoe UI,sans-serif;display:grid;place-items:center;height:90vh\">" +
             $"<p>{WebUtility.HtmlEncode(message)}</p></body>");
         response.ContentType = "text/html; charset=utf-8";

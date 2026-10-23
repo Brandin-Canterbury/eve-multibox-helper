@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using EveMultibox.Alerts;
 using EveMultibox.Clients;
 using EveMultibox.Config;
@@ -30,6 +30,11 @@ public partial class App : Application
     private readonly AlertEngine _alertEngine = new();
 
     public AppConfig Config { get; private set; } = null!;
+
+    /// <summary>Market orders and wallet history, shared by the Trade window and notifications.</summary>
+    public OrdersService Orders { get; private set; } = null!;
+
+    private NotificationService? _notifications;
     public AlertCenter Alerts { get; } = new();
     public string ConfigPath => _store.Path;
 
@@ -89,11 +94,14 @@ public partial class App : Application
 
         var esi = new EsiClient(cacheDir: EsiClient.DefaultCacheDir);
         _trade = new TradeService(esi, new EsiAuth(new TokenStore(TokenStore.DefaultDir), () => Config.Trade), new SdeStore(SdeStore.DefaultDir));
+        Orders = new OrdersService(_trade, new LedgerStore(LedgerStore.DefaultDir));
+        _notifications = new NotificationService(this, _trade, Orders, (title, text) => _tray?.Notify(text, ShowTrade, title));
 
         _tracker.Start();
         Apply();
         if (firstRun) OpenMultiboxerSettings();
         _ = _trade.StartAsync();
+        _notifications.Start();
         // --open-trade opens the Trade window at start-up (handy right after restarting the helper).
         if (e.Args.Contains("--open-trade")) ShowTrade();
 
@@ -130,7 +138,7 @@ public partial class App : Application
         {
             if (manual)
                 MessageBox.Show($"This is a development build ({Updater.CurrentVersion}), so it doesn't update itself.\n\nReleases: {Updater.ReleasesPage}",
-                    "EVE Multibox Helper", MessageBoxButton.OK, MessageBoxImage.Information);
+                    "Phoenix's Eve Helper", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -140,7 +148,7 @@ public partial class App : Application
             PendingUpdate = update;
             if (update is null)
             {
-                if (manual) MessageBox.Show($"You're on the latest version ({Updater.CurrentVersion}).", "EVE Multibox Helper",
+                if (manual) MessageBox.Show($"You're on the latest version ({Updater.CurrentVersion}).", "Phoenix's Eve Helper",
                     MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
@@ -151,7 +159,7 @@ public partial class App : Application
         }
         catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
-            if (manual) MessageBox.Show("Couldn't check for updates: " + ex.Message, "EVE Multibox Helper",
+            if (manual) MessageBox.Show("Couldn't check for updates: " + ex.Message, "Phoenix's Eve Helper",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
@@ -184,7 +192,8 @@ public partial class App : Application
 
         if (show) _menuButton.Show(); else _menuButton.Hide();
 
-        if ((show && Config.ShowMultiboxer) || _strip.SettingsOpen)
+        // The clients strip is for multiboxing: it needs the option on and at least two clients.
+        if ((show && Config.ShowMultiboxer && MultiboxerAvailable) || _strip.SettingsOpen)
         {
             if (!_strip.IsVisible)
             {
@@ -202,14 +211,17 @@ public partial class App : Application
 
         _tray?.SetStatus(clients switch
         {
-            0 => "EVE Multibox Helper · no EVE clients",
-            1 => "EVE Multibox Helper · 1 client",
-            _ => $"EVE Multibox Helper · {clients} clients",
+            0 => "Phoenix's Eve Helper · no EVE clients",
+            1 => "Phoenix's Eve Helper · 1 client",
+            _ => $"Phoenix's Eve Helper · {clients} clients",
         });
         // The first time a client appears, grab the real EVE icon for the tray.
         if (clients > 0 && !_hadClients) _tray?.RefreshIcon();
         _hadClients = clients > 0;
     }
+
+    /// <summary>True when enough EVE clients run for the clients strip to be useful (greys out the menu item otherwise).</summary>
+    public bool MultiboxerAvailable => _tracker.Clients.Count >= AppConfig.MinClientsForMultiboxer;
 
     /// <summary>Opens the multiboxer settings inside the clients strip, showing the strip if needed.</summary>
     public void OpenMultiboxerSettings()
@@ -226,7 +238,7 @@ public partial class App : Application
         if (DateTime.UtcNow - _lastErrorShown < TimeSpan.FromMinutes(1)) return;
         _lastErrorShown = DateTime.UtcNow;
         MessageBox.Show($"Something went wrong, but the helper is still running.\n\n{ex.Message}\n\nDetails were saved to:\n{CrashLog.PathName}",
-            "EVE Multibox Helper", MessageBoxButton.OK, MessageBoxImage.Warning);
+            "Phoenix's Eve Helper", MessageBoxButton.OK, MessageBoxImage.Warning);
     }
 
     private Widget.ActionWidgetWindow? _widget;
@@ -282,6 +294,22 @@ public partial class App : Application
         _generalSettings.Closed += (_, _) => _generalSettings = null;
         _generalSettings.Show();
         _generalSettings.Activate();
+    }
+
+    private NotificationsWindow? _notificationsWindow;
+
+    public void ShowNotificationsWindow()
+    {
+        if (_notificationsWindow is not null)
+        {
+            _notificationsWindow.Activate();
+            return;
+        }
+        _notificationsWindow = new NotificationsWindow(this, _trade, _notifications!);
+        _notificationsWindow.PlaceAbove(_menuButton);
+        _notificationsWindow.Closed += (_, _) => _notificationsWindow = null;
+        _notificationsWindow.Show();
+        _notificationsWindow.Activate();
     }
 
     public void ResetMenuButton()
@@ -402,6 +430,7 @@ public partial class App : Application
         {
             // Never block exit on a failed save.
         }
+        _notifications?.Stop();
         _trade?.Stop();
         _logs?.Dispose();
         _tray?.Dispose();

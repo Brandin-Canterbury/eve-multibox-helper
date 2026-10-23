@@ -40,6 +40,16 @@ public sealed record PnlLine(string Label, string Value, Tone Tone = Tone.Normal
     public static PnlLine Note(string text, Tone tone = Tone.Dim) => new("", text, tone);
 }
 
+/// <summary>One item in the P&L grid.</summary>
+public sealed record PnlRowView(PnlRow Row, string Item)
+{
+    public string SalesText => Row.SoldValue > 0 ? Isk.Short(Row.SoldValue) : "";
+    public string CostText => Row.CostOfSold > 0 ? Isk.Short(Row.CostOfSold) : "";
+    public string ProfitText => Row.SoldQty == 0 ? "" : (Row.Profit >= 0 ? "+" : "") + Isk.Short(Row.Profit);
+    public Tone ProfitTone => Row.Profit >= 0 ? Tone.Positive : Tone.Negative;
+    public string UnknownText => Row.UnknownCostQty > 0 ? $"{Row.UnknownCostQty:N0}" : "";
+}
+
 /// <summary>Narrows hub-to-hub routes to one direction, e.g. only Amarr → Jita.</summary>
 public static class RouteFilter
 {

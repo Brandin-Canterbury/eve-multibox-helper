@@ -103,6 +103,11 @@ public partial class MenuButtonWindow : Window
         if (DateTime.UtcNow - _menuClosedAt < TimeSpan.FromMilliseconds(250)) return;
 
         MultiboxerCheck.Text = _app.Config.ShowMultiboxer ? "✓" : "";
+        // The clients strip only makes sense with two or more clients.
+        MultiboxerRow.IsEnabled = _app.MultiboxerAvailable;
+        MultiboxerRow.ToolTip = _app.MultiboxerAvailable
+            ? "Show or hide the clients window. Borders and name tags stay."
+            : "Needs two or more EVE clients running.";
         UpdateRow.Visibility = _app.PendingUpdate is null ? Visibility.Collapsed : Visibility.Visible;
         UpdateText.Text = _app.PendingUpdate is { } u ? $"Update to {u.Version}" : "";
         Menu.IsOpen = true;
@@ -124,6 +129,12 @@ public partial class MenuButtonWindow : Window
     {
         Menu.IsOpen = false;
         _app.ShowTrade();
+    }
+
+    private void Notifications_Click(object sender, RoutedEventArgs e)
+    {
+        Menu.IsOpen = false;
+        _app.ShowNotificationsWindow();
     }
 
     private void Settings_Click(object sender, RoutedEventArgs e)

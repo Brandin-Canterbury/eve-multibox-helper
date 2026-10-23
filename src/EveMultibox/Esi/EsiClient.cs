@@ -137,6 +137,13 @@ public sealed class EsiClient
     }
 
     /// <returns>Body and X-Pages (1 if absent).</returns>
+    /// <summary>
+    /// When ESI's copy of an already-fetched response expires, i.e. when asking again could give
+    /// newer data. E.g. a character's orders refresh about every 20 minutes.
+    /// </summary>
+    public DateTimeOffset? ExpiresOf(string path, string? accessToken = null) =>
+        _memory.TryGetValue(CacheKey(path, accessToken), out var entry) ? entry.Expires : null;
+
     internal async Task<(string Body, int Pages)> GetRawAsync(string path, string? accessToken, CancellationToken ct)
     {
         string key = CacheKey(path, accessToken);

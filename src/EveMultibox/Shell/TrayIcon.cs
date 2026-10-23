@@ -22,6 +22,7 @@ public sealed class TrayIcon : IDisposable
         menu.Items.Add(_multiboxer);
         menu.Items.Add("Multiboxer settings", null, (_, _) => app.OpenMultiboxerSettings());
         menu.Items.Add("Trade", null, (_, _) => app.ShowTrade());
+        menu.Items.Add("Notifications", null, (_, _) => app.ShowNotificationsWindow());
         menu.Items.Add("Settings", null, (_, _) => app.ShowGeneralSettings());
         var updates = new Forms.ToolStripMenuItem("Check for updates");
         updates.Click += async (_, _) =>
@@ -35,13 +36,15 @@ public sealed class TrayIcon : IDisposable
         menu.Opening += (_, _) =>
         {
             _multiboxer.Checked = app.Config.ShowMultiboxer;
+            _multiboxer.Enabled = app.MultiboxerAvailable;
+            _multiboxer.ToolTipText = app.MultiboxerAvailable ? "" : "Needs two or more EVE clients running.";
             updates.Text = app.PendingUpdate is { } u ? $"Update to {u.Version}…" : "Check for updates";
         };
 
         _icon = new Forms.NotifyIcon
         {
             Icon = LoadEveIcon() ?? Drawing.SystemIcons.Application,
-            Text = "EVE Multibox Helper",
+            Text = "Phoenix's Eve Helper",
             ContextMenuStrip = menu,
             Visible = true,
         };
@@ -51,14 +54,16 @@ public sealed class TrayIcon : IDisposable
 
     private Action? _balloonClick;
 
-    /// <summary>A Windows notification from the tray icon; clicking it runs <paramref name="onClick"/>.</summary>
-    public void Notify(string text, Action? onClick = null)
+    /// <summary>A standard Windows notification from the tray icon; clicking it runs <paramref name="onClick"/>.</summary>
+    public void Notify(string text, Action? onClick = null, string? title = null)
     {
         _balloonClick = onClick;
-        _icon.ShowBalloonTip(8000, "EVE Multibox Helper", text, Forms.ToolTipIcon.Info);
+        // Windows limits notification text; keep it readable rather than cut mid-word by the system.
+        if (text.Length > 250) text = text[..247] + "…";
+        _icon.ShowBalloonTip(10_000, title ?? "Phoenix's Eve Helper", text, Forms.ToolTipIcon.Info);
     }
 
-    /// <summary>Tooltip text, e.g. "EVE Multibox Helper · 2 clients". Windows caps it at 63 characters.</summary>
+    /// <summary>Tooltip text, e.g. "Phoenix's Eve Helper · 2 clients". Windows caps it at 63 characters.</summary>
     public void SetStatus(string text) => _icon.Text = text.Length > 63 ? text[..63] : text;
 
     private static string CachedIconPath =>

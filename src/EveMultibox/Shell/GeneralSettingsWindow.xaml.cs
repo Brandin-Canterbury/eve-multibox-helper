@@ -44,7 +44,7 @@ public partial class GeneralSettingsWindow : Window
 
         var version = Assembly.GetExecutingAssembly().GetName().Version;
         AboutText.Text =
-            $"EVE Multibox Helper {version?.ToString(3)}\n" +
+            $"Phoenix's Eve Helper {version?.ToString(3)}\n" +
             "It never broadcasts or multiplexes input: thumbnails and hotkeys only switch windows, " +
             "one toolbox click sends one key to the client already in front, and alerts only notify.\n" +
             $"Config: {app.ConfigPath}";

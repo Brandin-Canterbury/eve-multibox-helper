@@ -57,6 +57,6 @@ jobs:
           $tag = "v${{ steps.version.outputs.version }}"
           gh release create $tag EveMultibox.exe `
             --target ${{ github.sha }} `
-            --title "EVE Multibox Helper $tag" `
+            --title "Phoenix's Eve Helper $tag" `
             --generate-notes `
             --latest

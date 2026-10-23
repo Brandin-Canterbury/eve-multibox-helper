@@ -30,6 +30,9 @@ public partial class TradeWindow : Window
         DestCharacterBox.ItemsSource = trade.Characters;
         RouteCharBox.ItemsSource = trade.Characters;
         SellCharBox.ItemsSource = trade.Characters;
+        OrdersCharBox.ItemsSource = trade.Characters;
+        BuildPnlChoices();
+        trade.Characters.CollectionChanged += (_, _) => BuildPnlChoices();
         RouteRadiusBox.Text = SellRadiusBox.Text = app.Config.Trade.JumpRadius.ToString();
         Closed += (_, _) => _search?.Cancel();
         trade.Characters.CollectionChanged += (_, _) => SelectDefaultCharacter();
@@ -193,7 +196,7 @@ public partial class TradeWindow : Window
     private void SelectDefaultCharacter()
     {
         if (_trade.Characters.Count == 0) return;
-        foreach (var box in new[] { DestCharacterBox, RouteCharBox, SellCharBox })
+        foreach (var box in new[] { DestCharacterBox, RouteCharBox, SellCharBox, OrdersCharBox })
             if (box.SelectedItem is null) box.SelectedIndex = 0;
     }
 
@@ -442,6 +445,201 @@ public partial class TradeWindow : Window
     {
         SelectRouteButton.IsEnabled = RoutesGrid.SelectedItem is RouteRow;
         AddToRunButton.IsEnabled = RoutesGrid.SelectedItem is RouteRow && _trade.CurrentRun is not null;
+    }
+
+    // ---- My Orders ----
+
+    private CancellationTokenSource? _ordersLoad;
+
+    private async void OrdersCharBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (IsLoaded && !_restoring) await LoadOrdersAsync();
+    }
+
+    private async void RefreshOrders_Click(object sender, RoutedEventArgs e) => await LoadOrdersAsync();
+
+    private async Task LoadOrdersAsync()
+    {
+        if (OrdersCharBox.SelectedItem is not CharacterState c)
+        {
+            OrdersStatus.Text = "Sign in a character on the Characters tab first.";
+            return;
+        }
+        _ordersLoad?.Cancel();
+        var cts = _ordersLoad = new CancellationTokenSource();
+        RefreshOrdersButton.IsEnabled = false;
+        try
+        {
+            if (await _trade.EnsureStaticDataAsync() is not { } sde) return;
+            OrdersStatus.Text = $"Loading {c.Name}'s orders…";
+            var (orders, nextRefresh) = await _app.Orders.OrdersAsync(c, cts.Token);
+            await _trade.StationNamesAsync(orders.Select(o => o.LocationId));
+            if (cts.IsCancellationRequested) return;
+
+            var rows = orders.OrderBy(o => o.IsBuy).ThenBy(o => sde.TypeName(o.TypeId))
+                .Select(o => new OrderRow(o, c.Name, sde, _trade.CachedStationName)).ToList();
+            OrdersGrid.ItemsSource = rows;
+
+            var sells = orders.Where(o => !o.IsBuy).ToList();
+            var buys = orders.Where(o => o.IsBuy).ToList();
+            SellOrdersValue.Text = $"{Isk.Short(sells.Sum(o => o.RemainingValue))}  ({sells.Count})";
+            BuyOrdersValue.Text = $"{Isk.Short(buys.Sum(o => o.RemainingValue))}  ({buys.Count})";
+            OrderSlotsText.Text = c.Skills.OrderSlots > 0 ? $"{orders.Count} / {c.Skills.OrderSlots}" : $"{orders.Count}";
+            OrdersAttention.Text = "…";
+            OrdersAgeText.Text = $"EVE refreshes this list at {nextRefresh.ToLocalTime():t}";
+            OrdersStatus.Text = rows.Count == 0 ? $"{c.Name} has no open orders." : "Checking each order against the competition at its station…";
+
+            // Compare with competing orders, a few at a time.
+            var gate = new SemaphoreSlim(4);
+            await Task.WhenAll(rows.Select(async row =>
+            {
+                await gate.WaitAsync(cts.Token);
+                try
+                {
+                    var best = await _app.Orders.BestCompetitorAsync(row.Order, cts.Token);
+                    var (text, attention) = OrderStanding.Describe(row.Order, best);
+                    row.Standing = text;
+                    row.StandingTone = attention ? (text.StartsWith("Tied") ? Tone.Warning : Tone.Negative) : Tone.Positive;
+                }
+                catch (EsiException)
+                {
+                    row.Standing = "couldn't check";
+                }
+                finally
+                {
+                    gate.Release();
+                }
+            }));
+            if (cts.IsCancellationRequested) return;
+
+            int attentionCount = rows.Count(r => r.StandingTone == Tone.Negative);
+            OrdersAttention.Text = attentionCount == 0 ? "None" : $"{attentionCount} undercut / outbid";
+            OrdersAttention.Foreground = (System.Windows.Media.Brush)FindResource(attentionCount == 0 ? "Positive" : "Negative");
+            OrdersStatus.Text = rows.Count == 0 ? OrdersStatus.Text
+                : $"{rows.Count} open orders for {c.Name}. Standing compares each order with other orders at the same station.";
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex) when (ex is EsiException or SignInRequiredException or System.Net.Http.HttpRequestException)
+        {
+            OrdersStatus.Text = "Couldn't load orders: " + ex.Message;
+        }
+        finally
+        {
+            RefreshOrdersButton.IsEnabled = true;
+        }
+    }
+
+    // ---- P&L ----
+
+    private sealed record CharChoice(CharacterState? Character, string Name)
+    {
+        public override string ToString() => Name;
+    }
+
+    private sealed record PeriodChoice(string Name, Func<(DateTime From, DateTime To)> Range)
+    {
+        public override string ToString() => Name;
+    }
+
+    private bool _pnlSyncedOnce;
+
+    private void BuildPnlChoices()
+    {
+        var current = (PnlCharBox.SelectedItem as CharChoice)?.Character?.Id;
+        var choices = new List<CharChoice> { new(null, "All characters") };
+        choices.AddRange(_trade.Characters.Select(c => new CharChoice(c, c.Name)));
+        PnlCharBox.ItemsSource = choices;
+        PnlCharBox.SelectedItem = choices.FirstOrDefault(c => c.Character?.Id == current) ?? choices[0];
+
+        if (PnlPeriodBox.ItemsSource is null)
+        {
+            // EVE runs on UTC, so "today" starts at 00:00 EVE time.
+            PnlPeriodBox.ItemsSource = new List<PeriodChoice>
+            {
+                new("Today (EVE time)", () => (DateTime.UtcNow.Date, DateTime.MaxValue)),
+                new("Last 7 days", () => (DateTime.UtcNow.AddDays(-7), DateTime.MaxValue)),
+                new("Last 30 days", () => (DateTime.UtcNow.AddDays(-30), DateTime.MaxValue)),
+                new("All time", () => (DateTime.MinValue, DateTime.MaxValue)),
+            };
+            PnlPeriodBox.SelectedIndex = 1;
+        }
+    }
+
+    private IReadOnlyList<CharacterState> PnlCharacters() =>
+        PnlCharBox.SelectedItem is CharChoice { Character: { } one } ? new[] { one } : _trade.Characters.ToList();
+
+    private async void PnlFilter_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        // The first time the report is shown, fetch the latest from EVE; after that, use the saved history.
+        if (!_pnlSyncedOnce) await SyncPnlAsync();
+        else await ShowPnlAsync();
+    }
+
+    private async void SyncPnl_Click(object sender, RoutedEventArgs e) => await SyncPnlAsync();
+
+    private async Task SyncPnlAsync()
+    {
+        SyncPnlButton.IsEnabled = false;
+        try
+        {
+            foreach (var c in PnlCharacters())
+            {
+                PnlStatus.Text = $"Syncing {c.Name}'s wallet…";
+                await _app.Orders.SyncLedgerAsync(c);
+            }
+            _pnlSyncedOnce = true;
+        }
+        catch (Exception ex) when (ex is EsiException or SignInRequiredException or System.Net.Http.HttpRequestException)
+        {
+            PnlStatus.Text = "Couldn't sync: " + ex.Message + " Showing the saved history.";
+        }
+        finally
+        {
+            SyncPnlButton.IsEnabled = true;
+        }
+        await ShowPnlAsync();
+    }
+
+    /// <summary>Profit and loss from the saved history (no network), for one character or all.</summary>
+    private async Task ShowPnlAsync()
+    {
+        if (await _trade.EnsureStaticDataAsync() is not { } sde || PnlPeriodBox.SelectedItem is not PeriodChoice period) return;
+        var (from, to) = period.Range();
+
+        var ledgers = PnlCharacters().Select(c => _app.Orders.SavedLedger(c.Id)).ToList();
+        var reports = ledgers.Select(l => PnlCalculator.Compute(l, from, to)).ToList();
+
+        // Combine characters item by item.
+        var rows = reports.SelectMany(r => r.Rows).GroupBy(r => r.TypeId).Select(g => new PnlRow(g.Key,
+                g.Sum(r => r.BoughtQty), g.Sum(r => r.BoughtValue), g.Sum(r => r.SoldQty), g.Sum(r => r.SoldValue),
+                g.Sum(r => r.CostOfSold), g.Sum(r => r.Profit), g.Sum(r => r.UnknownCostQty)))
+            .OrderByDescending(r => r.Profit)
+            .Select(r => new PnlRowView(r, sde.TypeName(r.TypeId)))
+            .ToList();
+        PnlGrid.ItemsSource = rows;
+
+        double trading = reports.Sum(r => r.TradingProfit), net = reports.Sum(r => r.NetProfit);
+        PnlSales.Text = Isk.Short(reports.Sum(r => r.Sales));
+        PnlPurchases.Text = Isk.Short(reports.Sum(r => r.Purchases));
+        PnlTax.Text = Isk.Short(reports.Sum(r => r.SalesTax));
+        PnlBroker.Text = Isk.Short(reports.Sum(r => r.BrokerFees));
+        PnlTrading.Text = (trading >= 0 ? "+" : "") + Isk.Short(trading);
+        PnlNet.Text = (net >= 0 ? "+" : "") + Isk.Short(net);
+        PnlTrading.Foreground = (System.Windows.Media.Brush)FindResource(trading >= 0 ? "Positive" : "Negative");
+        PnlNet.Foreground = (System.Windows.Media.Brush)FindResource(net >= 0 ? "Positive" : "Negative");
+
+        var first = ledgers.SelectMany(l => l.Transactions).Select(t => (DateTime?)t.Date).Min();
+        var synced = ledgers.Select(l => l.LastSync).Where(s => s is not null).Max();
+        PnlSyncText.Text = (first is DateTime f ? $"History since {f:d MMM yyyy}" : "No saved history yet") +
+                           (synced is DateTimeOffset s ? $" · synced {s.ToLocalTime():t}" : "");
+
+        long unknown = reports.Sum(r => r.UnknownCostSales);
+        PnlStatus.Text = unknown > 0
+            ? $"{unknown:N0} units were sold without a known cost (bought before the saved history), so they count in sales but not in profit."
+            : "Profit uses each item's average purchase cost. Net profit also takes off the period's sales tax and broker fees.";
     }
 
     // ---- Trade run ----
