@@ -1,0 +1,49 @@
+<Window x:Class="EveMultibox.Shell.UpdateWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="EVE Multibox Helper update"
+        WindowStyle="None" ResizeMode="NoResize" Width="460" SizeToContent="Height"
+        Topmost="True" ShowInTaskbar="True" WindowStartupLocation="CenterScreen"
+        Background="#1E1E22" BorderBrush="#4DA6FF" BorderThickness="1" Foreground="#DDDDE4">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Settings/DarkTheme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Background="{StaticResource Control}" MouseLeftButtonDown="Header_MouseLeftButtonDown" Cursor="SizeAll">
+            <DockPanel>
+                <Button x:Name="CloseButton" DockPanel.Dock="Right" Content="✕" FontFamily="Segoe UI Symbol" Padding="12,6"
+                        BorderThickness="0" Background="Transparent" Click="Later_Click" ToolTip="Later" />
+                <TextBlock Text="UPDATE AVAILABLE" FontWeight="SemiBold" Margin="12,7" VerticalAlignment="Center" />
+            </DockPanel>
+        </Border>
+
+        <StackPanel Margin="16,14,16,16">
+            <TextBlock x:Name="VersionText" FontSize="18" FontWeight="Bold" />
+            <TextBlock x:Name="CurrentText" Foreground="{StaticResource TextDim}" Margin="0,2,0,12" />
+
+            <TextBlock Text="WHAT'S NEW" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextDim}" Margin="0,0,0,4" />
+            <TextBox x:Name="NotesBox" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="180" MinHeight="60"
+                     VerticalScrollBarVisibility="Auto" BorderThickness="1" Padding="8,6" />
+            <TextBlock Margin="0,6,0,0">
+                <Hyperlink x:Name="PageLink" Click="PageLink_Click" Foreground="{StaticResource Accent}">View this release on GitHub</Hyperlink>
+            </TextBlock>
+
+            <ProgressBar x:Name="Progress" Maximum="1" Margin="0,14,0,0" Visibility="Collapsed" />
+            <TextBlock x:Name="StatusText" TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{StaticResource TextDim}"
+                       Text="The helper downloads the new version from GitHub, checks it, replaces itself and restarts. Your settings are kept." />
+
+            <DockPanel Margin="0,16,0,0">
+                <Button x:Name="SkipButton" DockPanel.Dock="Left" Content="Skip this version" Click="Skip_Click" />
+                <Button x:Name="UpdateButton" DockPanel.Dock="Right" Content="Update &amp; restart"
+                        Background="#1F3A5C" BorderBrush="{StaticResource Accent}" FontWeight="SemiBold" Padding="16,5" Click="Update_Click" />
+                <Button x:Name="LaterButton" DockPanel.Dock="Right" Content="Later" Margin="0,0,8,0" Click="Later_Click" />
+                <TextBlock />
+            </DockPanel>
+        </StackPanel>
+    </DockPanel>
+</Window>

@@ -14,6 +14,7 @@ public sealed class AppConfig
     public AlertSettings Alerts { get; set; } = new();
     public TradeSettings Trade { get; set; } = new();
     public WidgetSettings Widget { get; set; } = new();
+    public UpdateSettings Updates { get; set; } = new();
 
     /// <summary>EVE's logs folder, used by alerts and character names. Blank means Documents\EVE\logs.</summary>
     public string? EveLogsFolder { get; set; }
@@ -168,6 +169,15 @@ public sealed class WidgetSettings
     public string? UndockKey { get; set; }
 
     public WindowSpot? Position { get; set; }
+}
+
+public sealed class UpdateSettings
+{
+    /// <summary>Check GitHub for a newer release shortly after start-up and every few hours.</summary>
+    public bool AutoCheck { get; set; } = true;
+
+    /// <summary>A version the user chose to skip; it won't be offered again automatically.</summary>
+    public string? SkippedVersion { get; set; }
 }
 
 public sealed class WindowSpot

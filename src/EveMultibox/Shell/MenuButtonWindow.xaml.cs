@@ -103,6 +103,8 @@ public partial class MenuButtonWindow : Window
         if (DateTime.UtcNow - _menuClosedAt < TimeSpan.FromMilliseconds(250)) return;
 
         MultiboxerCheck.Text = _app.Config.ShowMultiboxer ? "✓" : "";
+        UpdateRow.Visibility = _app.PendingUpdate is null ? Visibility.Collapsed : Visibility.Visible;
+        UpdateText.Text = _app.PendingUpdate is { } u ? $"Update to {u.Version}" : "";
         Menu.IsOpen = true;
     }
 
@@ -128,6 +130,12 @@ public partial class MenuButtonWindow : Window
     {
         Menu.IsOpen = false;
         _app.ShowGeneralSettings();
+    }
+
+    private void Update_Click(object sender, RoutedEventArgs e)
+    {
+        Menu.IsOpen = false;
+        _app.ShowUpdateWindow();
     }
 
     private void Quit_Click(object sender, RoutedEventArgs e)

@@ -59,6 +59,10 @@ public partial class App : Application
             if (args.ExceptionObject is Exception ex) CrashLog.Write(ex, "fatal");
         };
 
+        // Started by the updater: let the previous copy finish exiting first, then tidy up after it.
+        Updater.WaitForPreviousInstance(e.Args);
+        if (Updater.IsReleaseBuild) Updater.CleanUpOldFiles();
+
         // --config <path> uses a different settings file (handy for testing against Notepad windows).
         int configArg = Array.IndexOf(e.Args, "--config");
         string configPath = configArg >= 0 && configArg + 1 < e.Args.Length ? e.Args[configArg + 1] : ConfigStore.DefaultPath;
@@ -92,6 +96,78 @@ public partial class App : Application
         _ = _trade.StartAsync();
         // --open-trade opens the Trade window at start-up (handy right after restarting the helper).
         if (e.Args.Contains("--open-trade")) ShowTrade();
+
+        if (e.Args.Contains("--updated")) _tray.Notify($"Updated to version {Updater.CurrentVersion}.");
+        StartUpdateChecks();
+    }
+
+    // ---- updates ----
+
+    private static readonly TimeSpan FirstUpdateCheck = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan UpdateCheckEvery = TimeSpan.FromHours(6);
+    private System.Windows.Threading.DispatcherTimer? _updateTimer;
+    private Shell.UpdateWindow? _updateWindow;
+
+    /// <summary>The newer release found by the last check, if any (shown in the ☰ menu and tray).</summary>
+    public UpdateInfo? PendingUpdate { get; private set; }
+
+    private void StartUpdateChecks()
+    {
+        if (!Updater.IsReleaseBuild) return; // Development copies never replace themselves.
+        _updateTimer = new System.Windows.Threading.DispatcherTimer { Interval = FirstUpdateCheck };
+        _updateTimer.Tick += async (_, _) =>
+        {
+            _updateTimer.Interval = UpdateCheckEvery;
+            if (Config.Updates.AutoCheck) await CheckForUpdatesAsync(manual: false);
+        };
+        _updateTimer.Start();
+    }
+
+    /// <summary>Asks GitHub for a newer release. Manual checks always report back; automatic ones stay quiet unless there's an update.</summary>
+    public async Task CheckForUpdatesAsync(bool manual)
+    {
+        if (!Updater.IsReleaseBuild)
+        {
+            if (manual)
+                MessageBox.Show($"This is a development build ({Updater.CurrentVersion}), so it doesn't update itself.\n\nReleases: {Updater.ReleasesPage}",
+                    "EVE Multibox Helper", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        try
+        {
+            var update = await new Updater().CheckAsync(Updater.CurrentVersion);
+            PendingUpdate = update;
+            if (update is null)
+            {
+                if (manual) MessageBox.Show($"You're on the latest version ({Updater.CurrentVersion}).", "EVE Multibox Helper",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            if (!manual && update.Version.ToString() == Config.Updates.SkippedVersion) return;
+
+            _tray?.Notify($"Version {update.Version} is available. Click to update.", ShowUpdateWindow);
+            if (manual) ShowUpdateWindow();
+        }
+        catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+        {
+            if (manual) MessageBox.Show("Couldn't check for updates: " + ex.Message, "EVE Multibox Helper",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    public void ShowUpdateWindow()
+    {
+        if (PendingUpdate is not { } update) return;
+        if (_updateWindow is not null)
+        {
+            _updateWindow.Activate();
+            return;
+        }
+        _updateWindow = new Shell.UpdateWindow(this, update);
+        _updateWindow.Closed += (_, _) => _updateWindow = null;
+        _updateWindow.Show();
+        _updateWindow.Activate();
     }
 
     private TrayIcon? _tray;

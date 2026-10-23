@@ -104,6 +104,14 @@
                 <TextBox x:Name="UndockKeyBox" Width="90" ToolTip="e.g. Ctrl+U. Leave blank to undock with the station panel instead." />
             </StackPanel>
 
+            <TextBlock Text="UPDATES" Style="{StaticResource Section}" />
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Check now" Click="CheckUpdates_Click" />
+                <CheckBox x:Name="AutoUpdateBox" VerticalAlignment="Center"
+                          Content="Check for new versions automatically (offers to update and restart)" />
+            </DockPanel>
+            <TextBlock x:Name="VersionInfoText" Foreground="{StaticResource TextDim}" Margin="0,4,0,0" TextWrapping="Wrap" />
+
             <TextBlock Text="ABOUT" Style="{StaticResource Section}" />
             <TextBlock x:Name="AboutText" TextWrapping="Wrap" LineHeight="19" />
         </StackPanel>

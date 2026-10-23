@@ -45,7 +45,8 @@ jobs:
       - name: Publish single-file exe
         shell: pwsh
         run: |
-          dotnet publish src/EveMultibox -c Release -r win-x64 -p:Version=${{ steps.version.outputs.version }} -o publish
+          # ReleaseChannel=github turns on the built-in updater (development builds never update themselves).
+          dotnet publish src/EveMultibox -c Release -r win-x64 -p:Version=${{ steps.version.outputs.version }} -p:ReleaseChannel=github -o publish
           Copy-Item publish/EveMultibox.exe EveMultibox.exe
 
       - name: Create release

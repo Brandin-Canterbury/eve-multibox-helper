@@ -77,6 +77,12 @@
                             <TextBlock Text="Settings" />
                         </DockPanel>
                     </Button>
+                    <Button x:Name="UpdateRow" Style="{StaticResource MenuRow}" Click="Update_Click" Visibility="Collapsed">
+                        <DockPanel>
+                            <TextBlock Text="⬆" Width="20" FontFamily="Segoe UI Symbol" Foreground="{StaticResource Positive}" />
+                            <TextBlock x:Name="UpdateText" Foreground="{StaticResource Positive}" />
+                        </DockPanel>
+                    </Button>
                     <Border Height="1" Background="{StaticResource Edge}" Margin="6,4" />
                     <Button Style="{StaticResource MenuRow}" Click="Quit_Click">
                         <DockPanel>

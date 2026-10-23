@@ -24,6 +24,10 @@ public partial class GeneralSettingsWindow : Window
         LogsFolderBox.Text = app.Config.EveLogsFolder ?? "";
         StartWithWindowsBox.IsChecked = StartupRegistration.IsEnabled();
         AutoHideBox.IsChecked = app.Config.AutoHideWithoutClients;
+        AutoUpdateBox.IsChecked = app.Config.Updates.AutoCheck;
+        VersionInfoText.Text = Updater.IsReleaseBuild
+            ? $"You're running version {Updater.CurrentVersion}."
+            : $"Development build {Updater.CurrentVersion}: updates only apply to downloaded releases.";
 
         var trade = app.Config.Trade;
         ClientIdBox.Text = trade.ClientId ?? "";
@@ -67,6 +71,7 @@ public partial class GeneralSettingsWindow : Window
     {
         _app.Config.EveLogsFolder = string.IsNullOrWhiteSpace(LogsFolderBox.Text) ? null : LogsFolderBox.Text.Trim();
         _app.Config.AutoHideWithoutClients = AutoHideBox.IsChecked == true;
+        _app.Config.Updates.AutoCheck = AutoUpdateBox.IsChecked == true;
 
         var problems = new List<string>();
         var trade = _app.Config.Trade;
@@ -99,6 +104,8 @@ public partial class GeneralSettingsWindow : Window
         problems.AddRange(_app.ApplyAndSave());
         StatusText.Text = problems.Count == 0 ? $"Saved at {DateTime.Now:t}." : string.Join(" ", problems);
     }
+
+    private async void CheckUpdates_Click(object sender, RoutedEventArgs e) => await _app.CheckForUpdatesAsync(manual: true);
 
     private void CopyCallback_Click(object sender, RoutedEventArgs e)
     {

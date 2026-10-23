@@ -23,9 +23,20 @@ public sealed class TrayIcon : IDisposable
         menu.Items.Add("Multiboxer settings", null, (_, _) => app.OpenMultiboxerSettings());
         menu.Items.Add("Trade", null, (_, _) => app.ShowTrade());
         menu.Items.Add("Settings", null, (_, _) => app.ShowGeneralSettings());
+        var updates = new Forms.ToolStripMenuItem("Check for updates");
+        updates.Click += async (_, _) =>
+        {
+            if (app.PendingUpdate is not null) app.ShowUpdateWindow();
+            else await app.CheckForUpdatesAsync(manual: true);
+        };
+        menu.Items.Add(updates);
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Quit", null, (_, _) => app.Quit());
-        menu.Opening += (_, _) => _multiboxer.Checked = app.Config.ShowMultiboxer;
+        menu.Opening += (_, _) =>
+        {
+            _multiboxer.Checked = app.Config.ShowMultiboxer;
+            updates.Text = app.PendingUpdate is { } u ? $"Update to {u.Version}…" : "Check for updates";
+        };
 
         _icon = new Forms.NotifyIcon
         {
@@ -35,6 +46,16 @@ public sealed class TrayIcon : IDisposable
             Visible = true,
         };
         _icon.DoubleClick += (_, _) => app.ShowTrade();
+        _icon.BalloonTipClicked += (_, _) => _balloonClick?.Invoke();
+    }
+
+    private Action? _balloonClick;
+
+    /// <summary>A Windows notification from the tray icon; clicking it runs <paramref name="onClick"/>.</summary>
+    public void Notify(string text, Action? onClick = null)
+    {
+        _balloonClick = onClick;
+        _icon.ShowBalloonTip(8000, "EVE Multibox Helper", text, Forms.ToolTipIcon.Info);
     }
 
     /// <summary>Tooltip text, e.g. "EVE Multibox Helper · 2 clients". Windows caps it at 63 characters.</summary>

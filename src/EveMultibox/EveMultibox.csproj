@@ -23,6 +23,12 @@
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
 
+  <!-- Release builds (dotnet publish -p:ReleaseChannel=github, done by the release workflow) can update
+       themselves; development builds can't, so a copy run from a build folder is never replaced. -->
+  <ItemGroup Condition="'$(ReleaseChannel)' != ''">
+    <AssemblyMetadata Include="ReleaseChannel" Value="$(ReleaseChannel)" />
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="EveMultibox.Tests" />
     <!-- Keep WinForms out of the global usings so names like Application and MessageBox stay WPF's. -->
