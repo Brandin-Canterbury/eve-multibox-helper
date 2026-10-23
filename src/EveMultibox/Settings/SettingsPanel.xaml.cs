@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using EveMultibox.Alerts;
 using EveMultibox.Clients;
 using EveMultibox.Config;
@@ -8,10 +9,13 @@ using EveMultibox.Logs;
 using EveMultibox.Sync;
 using EveMultibox.Toolbox;
 
-namespace EveMultibox;
+namespace EveMultibox.Settings;
 
-/// <summary>Settings: client labels and colors, favorites, alerts, UI sync, display toggles and detection.</summary>
-public partial class MainWindow : Window
+/// <summary>
+/// Settings for client labels and colors, favorites, alerts, UI sync, display toggles and detection.
+/// It lives inside the thumbnail strip overlay and opens from its gear.
+/// </summary>
+public partial class SettingsPanel : UserControl
 {
     private const string NoAccountCopy = "(don't copy account settings)";
 
@@ -21,7 +25,10 @@ public partial class MainWindow : Window
 
     private AppConfig Config => _app.Config;
 
-    public MainWindow(App app)
+    /// <summary>The user pressed Close; the host should hide the panel.</summary>
+    public event Action? CloseRequested;
+
+    public SettingsPanel(App app)
     {
         InitializeComponent();
         _app = app;
@@ -43,9 +50,11 @@ public partial class MainWindow : Window
         TitleRegexBox.Text = Config.Detection.TitleRegex;
         IncludeLoginBox.IsChecked = Config.Detection.IncludeLoginScreens;
         AlertsEnabledBox.IsChecked = Config.Alerts.Enabled;
-        LogsFolderBox.Text = Config.Alerts.LogsFolder ?? "";
         JumpHotkeyBox.Text = Config.Alerts.JumpHotkey ?? "";
     }
+
+    /// <summary>Picks up toggles changed elsewhere (the ★ button) so saving here doesn't undo them.</summary>
+    public void SyncToggles() => ShowToolboxBox.IsChecked = Config.ShowToolbox;
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
@@ -67,7 +76,6 @@ public partial class MainWindow : Window
         Config.Detection.TitleRegex = TitleRegexBox.Text;
         Config.Detection.IncludeLoginScreens = IncludeLoginBox.IsChecked == true;
         Config.Alerts.Enabled = AlertsEnabledBox.IsChecked == true;
-        Config.Alerts.LogsFolder = string.IsNullOrWhiteSpace(LogsFolderBox.Text) ? null : LogsFolderBox.Text.Trim();
         Config.Alerts.JumpHotkey = string.IsNullOrWhiteSpace(JumpHotkeyBox.Text) ? null : JumpHotkeyBox.Text.Trim();
 
         var problems = _app.ApplyAndSave();
@@ -77,6 +85,12 @@ public partial class MainWindow : Window
 
         StatusText.Text = problems.Count == 0 ? $"Saved at {DateTime.Now:t}." : string.Join(" ", problems);
     }
+
+    private void Close_Click(object sender, RoutedEventArgs e) => CloseRequested?.Invoke();
+
+    private void Quit_Click(object sender, RoutedEventArgs e) => _app.Quit();
+
+    private Window? Owner => Window.GetWindow(this);
 
     // ---- Favorites ----
 
@@ -183,7 +197,7 @@ public partial class MainWindow : Window
     private bool RefuseIfEveRunning()
     {
         if (!SettingsSync.AnyEveClientRunning()) return false;
-        MessageBox.Show(this,
+        MessageBox.Show(Owner!,
             "EVE is still running. Close every EVE client first. EVE saves its settings when it closes, which would undo the change.",
             "Close EVE first", MessageBoxButton.OK, MessageBoxImage.Warning);
         return true;
@@ -210,7 +224,7 @@ public partial class MainWindow : Window
         string summary = string.Join("\n", charTargets.Concat(acctTargets).Select(r => $"  • {r.DisplayName} ({r.Id})"));
         string from = charSource is not null && charTargets.Count > 0 ? $"Characters get settings from {charSource.DisplayName}.\n" : "";
         if (acctSource is not null && acctTargets.Count > 0) from += $"Accounts get settings from account {acctSource.Id}.\n";
-        if (MessageBox.Show(this, $"{from}\nThese files will be overwritten (backups are saved first):\n{summary}",
+        if (MessageBox.Show(Owner!, $"{from}\nThese files will be overwritten (backups are saved first):\n{summary}",
                 "Copy UI settings", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
             return;
 
@@ -252,7 +266,7 @@ public partial class MainWindow : Window
         if (RefuseIfEveRunning()) return;
 
         var files = Directory.EnumerateFiles(latest, "core_*.dat").Select(Path.GetFileName);
-        if (MessageBox.Show(this, $"Put these files back from the backup made {Path.GetFileName(latest)}?\n\n  {string.Join("\n  ", files)}",
+        if (MessageBox.Show(Owner!, $"Put these files back from the backup made {Path.GetFileName(latest)}?\n\n  {string.Join("\n  ", files)}",
                 "Restore backup", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
             return;
 

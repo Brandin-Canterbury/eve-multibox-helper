@@ -19,7 +19,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="1" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                BorderThickness="1" Padding="{TemplateBinding Padding}">
                             <ContentPresenter />
                         </Border>
                         <ControlTemplate.Triggers>

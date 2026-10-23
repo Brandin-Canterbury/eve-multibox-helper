@@ -8,8 +8,7 @@
         Width="200" Height="200">
     <Grid>
         <Border x:Name="Frame" BorderThickness="3" />
-        <Border x:Name="LabelPill" HorizontalAlignment="Center" VerticalAlignment="Top"
-                CornerRadius="0,0,8,8" Padding="14,2,14,4">
+        <Border x:Name="LabelPill" HorizontalAlignment="Center" VerticalAlignment="Top" Padding="14,2,14,4">
             <TextBlock x:Name="LabelText" FontSize="16" FontWeight="Bold" />
         </Border>
     </Grid>

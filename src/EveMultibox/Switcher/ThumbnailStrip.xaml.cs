@@ -8,19 +8,22 @@ using EveMultibox.Alerts;
 using EveMultibox.Clients;
 using EveMultibox.Config;
 using EveMultibox.Interop;
+using EveMultibox.Settings;
 using EveMultibox.Util;
 
 namespace EveMultibox.Switcher;
 
 /// <summary>
 /// Live previews of every EVE client. Clicking one brings that client to the front. It only
-/// changes focus and never sends anything to the game.
+/// changes focus and never sends anything to the game. The gear in its header opens the settings
+/// panel inside this same overlay.
 /// </summary>
 public partial class ThumbnailStrip : Window
 {
     private static readonly SolidColorBrush InactiveEdge = Visuals.Brush(Color.FromRgb(0x3A, 0x3A, 0x42));
     private static readonly SolidColorBrush HeaderNormal = Visuals.Brush(Color.FromRgb(0xBB, 0xBB, 0xC4));
     private static readonly SolidColorBrush HeaderAlert = Visuals.Brush(Color.FromRgb(0xFF, 0xC8, 0x4D));
+    private static readonly SolidColorBrush GearNormal = Visuals.Brush(Color.FromRgb(0xD0, 0xD0, 0xDA));
     private const string HeaderHint = "EVE clients · click one to switch · drag here to move";
 
     private sealed class Cell
@@ -38,6 +41,7 @@ public partial class ThumbnailStrip : Window
     private readonly AlertCenter _alerts;
     private readonly List<Cell> _cells = new();
     private IntPtr _hwnd;
+    private SettingsPanel? _settings;
 
     public ThumbnailStrip(ClientTracker tracker, AppConfig config, AlertCenter alerts)
     {
@@ -58,13 +62,78 @@ public partial class ThumbnailStrip : Window
         _tracker.ClientsChanged += Rebuild;
         _tracker.ActiveClientChanged += Restyle;
         _tracker.Tick += UpdateThumbnails;
+        KeyDown += (_, e) =>
+        {
+            // DataGrid handles Esc itself while a cell is being edited, so this only fires otherwise.
+            if (e.Key == Key.Escape && SettingsOpen)
+            {
+                CloseSettings();
+                e.Handled = true;
+            }
+        };
+        Closing += (_, e) =>
+        {
+            // Alt+F4 on the strip hides it (same as Multiboxer off in the ☰ menu) instead of quitting.
+            var app = (App)Application.Current;
+            if (app.IsQuitting) return;
+            e.Cancel = true;
+            app.SetMultiboxerVisible(false);
+        };
         Closed += (_, _) => ClearCells();
+    }
+
+    public bool SettingsOpen => SettingsHost.Visibility == Visibility.Visible;
+
+    public void OpenSettings()
+    {
+        if (_hwnd == IntPtr.Zero) return;
+        if (_settings is null)
+        {
+            // Created once and kept, so unsaved edits survive closing and reopening the panel.
+            _settings = new SettingsPanel((App)Application.Current);
+            _settings.CloseRequested += CloseSettings;
+        }
+        _settings.SyncToggles();
+        SettingsHost.Content = _settings;
+        SettingsHost.Visibility = Visibility.Visible;
+        SettingsButton.Foreground = HeaderAlert;
+
+        // Normally the strip never takes focus, so it can't steal clicks meant for EVE.
+        // Settings need typing, so the strip accepts focus only while the panel is open.
+        Win32.RemoveExStyle(_hwnd, Win32.WS_EX_NOACTIVATE);
+        Activate();
+    }
+
+    /// <summary>Refreshes the settings panel's toggles after they were changed from elsewhere.</summary>
+    public void SyncSettings() => _settings?.SyncToggles();
+
+    /// <summary>Highlights the ★ while the favorites toolbox is showing.</summary>
+    public void SetToolboxIndicator(bool shown) => ToolboxButton.Foreground = shown ? HeaderAlert : GearNormal;
+
+    /// <summary>Raised after the settings panel closes (the app may then auto-hide the strip).</summary>
+    public event Action? SettingsClosed;
+
+    public void CloseSettings()
+    {
+        if (!SettingsOpen) return;
+        SettingsHost.Visibility = Visibility.Collapsed;
+        Dispatcher.BeginInvoke(() => SettingsClosed?.Invoke());
+        SettingsButton.Foreground = GearNormal;
+        Win32.AddExStyle(_hwnd, Win32.WS_EX_NOACTIVATE);
     }
 
     public void Rebuild()
     {
         if (_hwnd == IntPtr.Zero) return;
         ClearCells();
+
+        // With thumbnails off the strip shrinks to its header bar, so the gear is always reachable.
+        ThumbsArea.Visibility = _config.ShowThumbnails ? Visibility.Visible : Visibility.Collapsed;
+        if (!_config.ShowThumbnails)
+        {
+            Restyle(); // Still keeps the header's alert line current.
+            return;
+        }
 
         int width = Math.Clamp(_config.ThumbnailWidth, 120, 640);
         foreach (var client in _tracker.Clients)
@@ -185,9 +254,18 @@ public partial class ThumbnailStrip : Window
         Cells.Children.Clear();
     }
 
+    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (SettingsOpen) CloseSettings();
+        else OpenSettings();
+    }
+
+    private void ToolboxButton_Click(object sender, RoutedEventArgs e) => ((App)Application.Current).ToggleToolbox();
+
     private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         DragMove();
         _config.StripPosition = new WindowSpot { X = Left, Y = Top };
+        ((App)Application.Current).SaveQuietly();
     }
 }

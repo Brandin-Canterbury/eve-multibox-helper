@@ -1,0 +1,91 @@
+<Window x:Class="EveMultibox.Shell.MenuButtonWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="EVE Multibox Helper menu"
+        WindowStyle="None" ResizeMode="NoResize" SizeToContent="WidthAndHeight"
+        Topmost="True" ShowInTaskbar="False" ShowActivated="False"
+        AllowsTransparency="True" Background="Transparent">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Settings/DarkTheme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <Style x:Key="MenuRow" TargetType="Button">
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="Foreground" Value="{StaticResource Text}" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" Background="Transparent" Padding="8,6">
+                                <ContentPresenter />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource ControlHover}" />
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource ControlPressed}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid>
+        <Border x:Name="Face" Width="40" Height="40" Cursor="Hand"
+                Background="{StaticResource Control}" BorderBrush="{StaticResource Edge}" BorderThickness="1"
+                ToolTip="EVE Multibox Helper · hold Alt and drag to move"
+                MouseLeftButtonDown="Face_MouseLeftButtonDown" MouseLeftButtonUp="Face_MouseLeftButtonUp"
+                MouseEnter="Face_MouseEnter" MouseLeave="Face_MouseLeave">
+            <!-- Hamburger icon -->
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <Rectangle Width="18" Height="2" Fill="#D0D0DA" />
+                <Rectangle Width="18" Height="2" Fill="#D0D0DA" Margin="0,4" />
+                <Rectangle Width="18" Height="2" Fill="#D0D0DA" />
+            </StackPanel>
+        </Border>
+
+        <Popup x:Name="Menu" PlacementTarget="{Binding ElementName=Face}" Placement="Top" VerticalOffset="-6"
+               StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" Closed="Menu_Closed">
+            <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Edge}" BorderThickness="1"
+                    Padding="4" MinWidth="200">
+                <StackPanel>
+                    <TextBlock Text="EVE MULTIBOX HELPER" Foreground="{StaticResource TextDim}" FontSize="10"
+                               FontWeight="SemiBold" Margin="8,4,8,6" />
+                    <Button Style="{StaticResource MenuRow}" Click="Multiboxer_Click"
+                            ToolTip="Show or hide the clients window. Borders and name tags stay.">
+                        <DockPanel>
+                            <TextBlock x:Name="MultiboxerCheck" Width="20" Foreground="{StaticResource Accent}" FontWeight="Bold" />
+                            <TextBlock Text="Multiboxer" />
+                        </DockPanel>
+                    </Button>
+                    <Button Style="{StaticResource MenuRow}" Click="Trade_Click"
+                            ToolTip="Prices, trade routes and autopilot destinations">
+                        <DockPanel>
+                            <TextBlock Text="⇄" Width="20" FontFamily="Segoe UI Symbol" Foreground="{StaticResource TextDim}" />
+                            <TextBlock Text="Trade" />
+                        </DockPanel>
+                    </Button>
+                    <Button Style="{StaticResource MenuRow}" Click="Settings_Click">
+                        <DockPanel>
+                            <TextBlock Text="⚙" Width="20" FontFamily="Segoe UI Symbol" Foreground="{StaticResource TextDim}" />
+                            <TextBlock Text="Settings" />
+                        </DockPanel>
+                    </Button>
+                    <Border Height="1" Background="{StaticResource Edge}" Margin="6,4" />
+                    <Button Style="{StaticResource MenuRow}" Click="Quit_Click">
+                        <DockPanel>
+                            <TextBlock Text="✕" Width="20" FontFamily="Segoe UI Symbol" Foreground="{StaticResource TextDim}" />
+                            <TextBlock Text="Quit" />
+                        </DockPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Popup>
+    </Grid>
+</Window>

@@ -130,5 +130,6 @@ public partial class ToolboxWindow : Window
     {
         DragMove();
         _config.ToolboxPosition = new WindowSpot { X = Left, Y = Top };
+        ((App)Application.Current).SaveQuietly();
     }
 }

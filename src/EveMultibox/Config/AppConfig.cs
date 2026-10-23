@@ -12,6 +12,17 @@ public sealed class AppConfig
     public ObservableCollection<ClientProfile> Clients { get; set; } = new();
     public ObservableCollection<FavoriteCommand> Favorites { get; set; } = new();
     public AlertSettings Alerts { get; set; } = new();
+    public TradeSettings Trade { get; set; } = new();
+    public WidgetSettings Widget { get; set; } = new();
+
+    /// <summary>EVE's logs folder, used by alerts and character names. Blank means Documents\EVE\logs.</summary>
+    public string? EveLogsFolder { get; set; }
+
+    /// <summary>The clients strip (thumbnails, ⚙ and ★). Hiding it leaves the borders and name tags alone.</summary>
+    public bool ShowMultiboxer { get; set; } = true;
+
+    /// <summary>Hide the ☰ button, clients strip and toolbox while no EVE client is running (the tray icon stays).</summary>
+    public bool AutoHideWithoutClients { get; set; } = true;
 
     public bool ShowOverlays { get; set; } = true;
     public bool ShowThumbnails { get; set; } = true;
@@ -20,6 +31,19 @@ public sealed class AppConfig
 
     public WindowSpot ToolboxPosition { get; set; } = new() { X = 40, Y = 200 };
     public WindowSpot StripPosition { get; set; } = new() { X = 40, Y = 40 };
+
+    /// <summary>Where the ☰ menu button sits. Null means the default, the bottom-right of the main screen.</summary>
+    public WindowSpot? MenuButtonPosition { get; set; }
+
+    /// <summary>Brings older config files up to date after loading.</summary>
+    public void Upgrade()
+    {
+        // The logs folder used to be an alerts setting; it's general now because more features read the logs.
+#pragma warning disable CS0618
+        if (EveLogsFolder is null && !string.IsNullOrWhiteSpace(Alerts.LogsFolder)) EveLogsFolder = Alerts.LogsFolder;
+        Alerts.LogsFolder = null;
+#pragma warning restore CS0618
+    }
 
     /// <summary>Distinct, high-contrast colors handed out to newly seen characters.</summary>
     public static readonly string[] Palette =
@@ -103,13 +127,47 @@ public sealed class AlertSettings
 {
     public bool Enabled { get; set; } = true;
 
-    /// <summary>EVE's logs folder. Blank means Documents\EVE\logs.</summary>
+    /// <summary>Read from older config files only; see <see cref="AppConfig.EveLogsFolder"/>.</summary>
+    [Obsolete("Moved to AppConfig.EveLogsFolder.")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? LogsFolder { get; set; }
 
     /// <summary>Brings the client with the newest unseen alert to the front. Focus only.</summary>
     public string? JumpHotkey { get; set; } = "Ctrl+Alt+A";
 
     public ObservableCollection<AlertRule> Rules { get; set; } = new(AlertRule.Defaults());
+}
+
+public sealed class TradeSettings
+{
+    /// <summary>Client ID of the user's own app from developers.eveonline.com (PKCE, so no secret).</summary>
+    public string? ClientId { get; set; }
+
+    /// <summary>Must match the callback registered for the app: http://localhost:{port}/callback/</summary>
+    public int CallbackPort { get; set; } = 51515;
+
+    /// <summary>Default radius for the "within N jumps" route search.</summary>
+    public int JumpRadius { get; set; } = 8;
+
+    /// <summary>Trade hub stations: Jita 4-4, Amarr VIII, Dodixie IX-20, Rens VI-8, Hek VIII-12.</summary>
+    public List<long> HubStationIds { get; set; } = new() { 60003760, 60008494, 60011866, 60004588, 60005686 };
+
+    public WindowSpot? WindowPosition { get; set; }
+
+    [JsonIgnore]
+    public string CallbackUrl => $"http://localhost:{CallbackPort}/callback/";
+}
+
+/// <summary>The action widget's EVE shortcuts. They must match Esc → Shortcuts in game.</summary>
+public sealed class WidgetSettings
+{
+    /// <summary>EVE's "Dock / Jump / Activate gate": warps to 0 on the selected gate or station, then jumps or docks.</summary>
+    public string? JumpKey { get; set; } = "D";
+
+    /// <summary>EVE's undock shortcut (no default binding is assumed; set the one you use).</summary>
+    public string? UndockKey { get; set; }
+
+    public WindowSpot? Position { get; set; }
 }
 
 public sealed class WindowSpot

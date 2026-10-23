@@ -26,7 +26,9 @@ public sealed class ConfigStore
         if (!File.Exists(Path)) return AppConfig.CreateDefault();
         try
         {
-            return JsonSerializer.Deserialize<AppConfig>(File.ReadAllText(Path), JsonOptions) ?? AppConfig.CreateDefault();
+            var config = JsonSerializer.Deserialize<AppConfig>(File.ReadAllText(Path), JsonOptions) ?? AppConfig.CreateDefault();
+            config.Upgrade();
+            return config;
         }
         catch (JsonException)
         {

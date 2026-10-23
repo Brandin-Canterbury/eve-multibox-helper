@@ -32,6 +32,16 @@ dotnet test
 
 Single-file release build: `dotnet publish src/EveMultibox -c Release -r win-x64`.
 
+### Using it
+
+- **☰ menu button** (bottom-right of your main screen by default) is the app's main menu:
+  - **Multiboxer** shows or hides the clients strip. Borders and name tags stay either way.
+  - **Settings** opens general app settings: the EVE logs folder, start with Windows, and resetting the button's position.
+  - **Quit** exits the helper.
+  - The button is locked in place. Hold **Alt** and drag it to move it.
+- **Clients strip header:** ★ shows or hides the favorites toolbox (amber while showing). ⚙ opens the multiboxer settings inside the overlay; press it again or Esc to close them. With thumbnails turned off, the strip shrinks to its header bar.
+- Multiboxer settings open automatically on first run. Alt+F4 on the strip hides it rather than quitting.
+
 Settings are stored in `%AppData%\EveMultibox\config.json`. Use `--config <path>` to load a different file.
 
 ## Setup tips

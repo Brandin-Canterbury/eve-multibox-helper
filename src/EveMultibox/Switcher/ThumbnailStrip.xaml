@@ -5,12 +5,49 @@
         WindowStyle="None" ResizeMode="NoResize" SizeToContent="WidthAndHeight"
         Topmost="True" ShowInTaskbar="False" ShowActivated="False"
         Background="#1E1E22">
+    <Window.Resources>
+        <Style x:Key="HeaderButton" TargetType="Button">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontFamily" Value="Segoe UI Symbol" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="7,1,7,2" />
+            <Setter Property="Foreground" Value="#D0D0DA" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#4A4A55" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#5E5E6B" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
     <DockPanel>
-        <Border DockPanel.Dock="Top" Background="#2D2D33" Padding="8,3" Cursor="SizeAll"
+        <Border DockPanel.Dock="Top" Background="#2D2D33" Padding="8,0,0,0" Cursor="SizeAll"
                 MouseLeftButtonDown="Header_MouseLeftButtonDown">
-            <TextBlock x:Name="HeaderText" Foreground="#BBBBC4" FontSize="11" />
+            <DockPanel>
+                <!-- Buttons mark the mouse-down as handled, so clicking them doesn't start a drag.
+                     Right-docked in order: the gear is rightmost, the star sits to its left. -->
+                <Button x:Name="SettingsButton" DockPanel.Dock="Right" Content="⚙" ToolTip="Multiboxer settings"
+                        Style="{StaticResource HeaderButton}" Click="SettingsButton_Click" />
+                <Button x:Name="ToolboxButton" DockPanel.Dock="Right" Content="★" ToolTip="Show or hide the favorites toolbox"
+                        Style="{StaticResource HeaderButton}" Click="ToolboxButton_Click" />
+                <TextBlock x:Name="HeaderText" Foreground="#BBBBC4" FontSize="11" VerticalAlignment="Center" Margin="0,3,8,3" />
+            </DockPanel>
         </Border>
-        <Grid Margin="4">
+        <!-- Settings open here, inside the overlay, from the gear above. -->
+        <ContentControl x:Name="SettingsHost" DockPanel.Dock="Bottom" Visibility="Collapsed" Focusable="False" />
+        <Grid x:Name="ThumbsArea" Margin="4">
             <TextBlock x:Name="EmptyText" Text="No EVE clients found yet." Foreground="#888" Margin="12,10" />
             <StackPanel x:Name="Cells" Orientation="Horizontal" />
         </Grid>

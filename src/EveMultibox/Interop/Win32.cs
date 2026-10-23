@@ -156,6 +156,63 @@ internal static class Win32
     [DllImport("user32.dll")]
     public static extern uint MapVirtualKey(uint uCode, uint uMapType);
 
+    [DllImport("user32.dll")]
+    public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SystemParametersInfo(uint uiAction, uint uiParam, out RECT pvParam, uint fWinIni);
+
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetrics(int nIndex);
+
+    private const uint SPI_GETWORKAREA = 0x0030;
+
+    /// <summary>The main monitor's work area (excluding the taskbar) in real screen pixels.</summary>
+    public static RECT PrimaryWorkArea()
+    {
+        SystemParametersInfo(SPI_GETWORKAREA, 0, out var r, 0);
+        return r;
+    }
+
+    /// <summary>The bounding box of all monitors in real screen pixels.</summary>
+    public static RECT VirtualScreen()
+    {
+        int x = GetSystemMetrics(76), y = GetSystemMetrics(77); // SM_X/YVIRTUALSCREEN
+        return new RECT(x, y, x + GetSystemMetrics(78), y + GetSystemMetrics(79)); // SM_CX/CYVIRTUALSCREEN
+    }
+
+    public const int WM_GETMINMAXINFO = 0x0024;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MINMAXINFO
+    {
+        public POINT ptReserved, ptMaxSize, ptMaxPosition, ptMinTrackSize, ptMaxTrackSize;
+    }
+
+    /// <summary>
+    /// Window hook that lifts Windows' minimum window size (about 136 px wide), so tiny windows
+    /// such as the ☰ button can be their real size.
+    /// </summary>
+    public static IntPtr AllowTinyWindowHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == WM_GETMINMAXINFO)
+        {
+            var info = Marshal.PtrToStructure<MINMAXINFO>(lParam);
+            info.ptMinTrackSize = new POINT { X = 1, Y = 1 };
+            Marshal.StructureToPtr(info, lParam, false);
+            handled = true;
+        }
+        return IntPtr.Zero;
+    }
+
+    [DllImport("user32.dll")]
+    public static extern short GetAsyncKeyState(int vKey);
+
+    public const int VK_MENU = 0x12;
+
+    /// <summary>Whether Alt is physically held right now, even if another app has keyboard focus.</summary>
+    public static bool IsAltDown() => (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
+
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
 
@@ -186,6 +243,12 @@ internal static class Win32
     {
         long style = GetWindowLongPtr(hWnd, GWL_EXSTYLE).ToInt64();
         SetWindowLongPtr(hWnd, GWL_EXSTYLE, new IntPtr(style | flags));
+    }
+
+    public static void RemoveExStyle(IntPtr hWnd, long flags)
+    {
+        long style = GetWindowLongPtr(hWnd, GWL_EXSTYLE).ToInt64();
+        SetWindowLongPtr(hWnd, GWL_EXSTYLE, new IntPtr(style & ~flags));
     }
 
     /// <summary>

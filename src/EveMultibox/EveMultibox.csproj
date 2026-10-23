@@ -6,6 +6,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <!-- Only for the system tray icon (NotifyIcon); everything else is WPF. -->
+    <UseWindowsForms>true</UseWindowsForms>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>EveMultibox</AssemblyName>
     <Product>EVE Multibox Helper</Product>
@@ -21,6 +23,13 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="EveMultibox.Tests" />
+    <!-- Keep WinForms out of the global usings so names like Application and MessageBox stay WPF's. -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
   </ItemGroup>
 
 </Project>

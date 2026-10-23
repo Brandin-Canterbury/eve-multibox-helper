@@ -1,0 +1,386 @@
+<Window x:Class="EveMultibox.Trade.TradeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:trade="clr-namespace:EveMultibox.Trade"
+        Title="EVE trade"
+        WindowStyle="None" ResizeMode="CanResizeWithGrip" Width="1380" Height="700" MinWidth="960" MinHeight="460"
+        Topmost="True" ShowInTaskbar="False"
+        Background="#1E1E22" BorderBrush="#44444C" BorderThickness="1" Foreground="#DDDDE4">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Settings/DarkTheme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <Style x:Key="Dim" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{StaticResource TextDim}" />
+            </Style>
+            <Style x:Key="Caption" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{StaticResource TextDim}" />
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+            </Style>
+
+            <!-- The main action on each tab. -->
+            <Style x:Key="Primary" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                <Setter Property="Background" Value="#1F3A5C" />
+                <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                <Setter Property="Padding" Value="16,5" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+            </Style>
+
+            <!-- Grid cells: numbers right-aligned; some colored by meaning. -->
+            <Style x:Key="Num" TargetType="TextBlock">
+                <Setter Property="HorizontalAlignment" Value="Right" />
+            </Style>
+            <Style x:Key="Cost" TargetType="TextBlock" BasedOn="{StaticResource Num}">
+                <Setter Property="Foreground" Value="{StaticResource Negative}" />
+            </Style>
+            <Style x:Key="Money" TargetType="TextBlock" BasedOn="{StaticResource Num}">
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{StaticResource Positive}" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding ProfitTone}" Value="Negative">
+                        <Setter Property="Foreground" Value="{StaticResource Negative}" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding NetTone}" Value="Negative">
+                        <Setter Property="Foreground" Value="{StaticResource Negative}" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="Gain" TargetType="TextBlock" BasedOn="{StaticResource Num}">
+                <Setter Property="Foreground" Value="{StaticResource Positive}" />
+            </Style>
+            <Style x:Key="Demand" TargetType="TextBlock" BasedOn="{StaticResource Num}">
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding DemandTone}" Value="Warning">
+                        <Setter Property="Foreground" Value="{StaticResource Warning}" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="How" TargetType="TextBlock">
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding HowTone}" Value="Warning">
+                        <Setter Property="Foreground" Value="{StaticResource Warning}" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="Ellipsis" TargetType="TextBlock">
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            </Style>
+
+            <!-- P&L tooltip: label / value lines, values colored by what they mean. -->
+            <DataTemplate x:Key="PnlLineTemplate" DataType="{x:Type trade:PnlLine}">
+                <Grid x:Name="Row" Margin="0,1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="Label" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="Label" Text="{Binding Label}" Foreground="{StaticResource TextDim}" Margin="0,0,16,0" />
+                    <TextBlock x:Name="Value" Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap" />
+                </Grid>
+                <DataTemplate.Triggers>
+                    <DataTrigger Binding="{Binding Tone}" Value="Header">
+                        <Setter TargetName="Label" Property="Foreground" Value="{StaticResource Text}" />
+                        <Setter TargetName="Label" Property="FontWeight" Value="Bold" />
+                        <Setter TargetName="Label" Property="FontSize" Value="14" />
+                        <Setter TargetName="Label" Property="Grid.ColumnSpan" Value="2" />
+                        <Setter TargetName="Row" Property="Margin" Value="0,0,0,6" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Tone}" Value="Spacer">
+                        <Setter TargetName="Row" Property="Height" Value="8" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Tone}" Value="Positive">
+                        <Setter TargetName="Value" Property="Foreground" Value="{StaticResource Positive}" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Tone}" Value="Negative">
+                        <Setter TargetName="Value" Property="Foreground" Value="{StaticResource Negative}" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Tone}" Value="Warning">
+                        <Setter TargetName="Value" Property="Foreground" Value="{StaticResource Warning}" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Tone}" Value="Dim">
+                        <Setter TargetName="Value" Property="Foreground" Value="{StaticResource TextDim}" />
+                    </DataTrigger>
+                </DataTemplate.Triggers>
+            </DataTemplate>
+
+            <!-- Rows show their P&L lines as the tooltip. -->
+            <DataTemplate DataType="{x:Type trade:RouteRow}">
+                <ItemsControl ItemsSource="{Binding PnlLines}" ItemTemplate="{StaticResource PnlLineTemplate}"
+                              Grid.IsSharedSizeScope="True" MaxWidth="460" />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type trade:SellRow}">
+                <ItemsControl ItemsSource="{Binding PnlLines}" ItemTemplate="{StaticResource PnlLineTemplate}"
+                              Grid.IsSharedSizeScope="True" MaxWidth="460" />
+            </DataTemplate>
+
+            <Style x:Key="PnlRow" TargetType="DataGridRow">
+                <Setter Property="ToolTip" Value="{Binding}" />
+                <Setter Property="ToolTipService.InitialShowDelay" Value="250" />
+                <Setter Property="ToolTipService.ShowDuration" Value="60000" />
+            </Style>
+
+            <!-- The bar of search options above each grid. -->
+            <Style x:Key="FilterBar" TargetType="Border">
+                <Setter Property="Background" Value="{StaticResource Panel}" />
+                <Setter Property="BorderBrush" Value="{StaticResource Edge}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="12,8" />
+                <Setter Property="Margin" Value="0,0,0,10" />
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Background="{StaticResource Control}" Cursor="SizeAll" MouseLeftButtonDown="Header_MouseLeftButtonDown">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Content="✕" FontFamily="Segoe UI Symbol" Padding="12,6"
+                        BorderThickness="0" Background="Transparent" Click="Close_Click" ToolTip="Close (Esc)" />
+                <TextBlock Text="⇄  TRADE" FontWeight="SemiBold" Margin="12,7" VerticalAlignment="Center" />
+            </DockPanel>
+        </Border>
+
+        <Border DockPanel.Dock="Bottom" Background="{StaticResource Panel}" BorderBrush="{StaticResource Edge}" BorderThickness="0,1,0,0" Padding="12,6">
+            <TextBlock x:Name="StatusText" Style="{StaticResource Dim}" TextWrapping="Wrap" />
+        </Border>
+
+        <TabControl Margin="10">
+            <!-- ================= Characters ================= -->
+            <TabItem Header="Characters">
+                <DockPanel Margin="14">
+                    <!-- Shown until a Client ID is set up. -->
+                    <Border x:Name="SetupBanner" DockPanel.Dock="Top" Background="#2E2814" BorderBrush="{StaticResource Warning}" BorderThickness="1,0,0,0"
+                            Padding="12,10" Margin="0,0,0,12" Visibility="Collapsed">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="Open settings" Click="OpenSettings_Click" />
+                            <TextBlock TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{StaticResource Warning}"
+                                       Text="To sign in, register a free EVE app and paste its Client ID in ☰ → Settings → Trade. The settings page walks you through it." />
+                        </DockPanel>
+                    </Border>
+
+                    <Border DockPanel.Dock="Top" Style="{StaticResource FilterBar}">
+                        <StackPanel Orientation="Horizontal">
+                            <Button x:Name="SignInButton" Content="Sign in a character" Style="{StaticResource Primary}" Click="SignIn_Click" />
+                            <Button Content="Refresh" Margin="8,0,0,0" Click="Refresh_Click" />
+                            <TextBlock Style="{StaticResource Dim}" VerticalAlignment="Center" Margin="14,0,0,0"
+                                       Text="You sign in on CCP's own page; this app never sees your password." />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Autopilot destination. ESI can set a route; it can't warp or fly the ship. -->
+                    <Border DockPanel.Dock="Bottom" Style="{StaticResource FilterBar}" Margin="0,12,0,0" Padding="14,12">
+                        <StackPanel>
+                            <TextBlock Text="AUTOPILOT" Style="{StaticResource Caption}" Margin="0,0,0,8" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="For" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <ComboBox x:Name="DestCharacterBox" Width="200" />
+                                <CheckBox x:Name="AsWaypointBox" Content="add as waypoint (keep current route)" VerticalAlignment="Center" Margin="14,0,0,0" />
+                            </StackPanel>
+                            <StackPanel x:Name="HubButtons" Orientation="Horizontal" Margin="0,10,0,0" />
+                            <DockPanel Margin="0,10,0,0">
+                                <Button DockPanel.Dock="Right" Content="Set destination" Margin="8,0,0,0" Click="SetSystem_Click" />
+                                <TextBlock Text="System" VerticalAlignment="Center" Width="60" />
+                                <TextBox x:Name="SystemBox" ToolTip="Type a solar system name, e.g. Perimeter" KeyDown="SystemBox_KeyDown" />
+                            </DockPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="CharacterList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Accent}" BorderThickness="2,0,0,0"
+                                            Padding="14,10" Margin="0,0,0,10">
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right" VerticalAlignment="Top" Content="Sign out" Click="SignOut_Click" Tag="{Binding}" />
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="15" />
+                                                    <TextBlock x:Name="Online" Text="{Binding OnlineText}" Margin="12,2,0,0" Foreground="{StaticResource TextDim}" />
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding LocationText}" Margin="0,6,0,2" />
+                                                <TextBlock Text="{Binding ShipText}" Style="{StaticResource Dim}" Margin="0,1" />
+                                                <TextBlock Text="{Binding WalletText}" Foreground="{StaticResource Positive}" Margin="0,1" />
+                                                <TextBlock Text="{Binding SkillsText}" Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,1" />
+                                                <TextBlock Text="{Binding Error}" Foreground="{StaticResource Negative}" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Border>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding Online}" Value="True">
+                                            <Setter TargetName="Online" Property="Foreground" Value="{StaticResource Positive}" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </TabItem>
+
+            <!-- ================= Trade Routes ================= -->
+            <TabItem Header="Trade Routes">
+                <DockPanel Margin="14">
+                    <Border DockPanel.Dock="Top" Style="{StaticResource FilterBar}">
+                        <WrapPanel>
+                            <TextBlock Text="For" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <ComboBox x:Name="RouteCharBox" Width="180" Margin="0,0,18,0" />
+                            <RadioButton x:Name="RouteHubsRadio" Content="Hub to hub" IsChecked="True"
+                                         VerticalAlignment="Center" Margin="0,0,14,0" GroupName="RouteMode" />
+                            <RadioButton x:Name="RouteJumpsRadio" Content="Within" VerticalAlignment="Center" GroupName="RouteMode" />
+                            <TextBox x:Name="RouteRadiusBox" Width="40" Margin="6,0" TextAlignment="Center" />
+                            <TextBlock Text="jumps" VerticalAlignment="Center" Margin="0,0,18,0" />
+                            <CheckBox x:Name="RouteSafeBox" Content="Avoid low-sec" VerticalAlignment="Center" Margin="0,0,18,0" />
+                            <Button x:Name="PopulateRoutesButton" Content="Populate" Style="{StaticResource Primary}" Click="PopulateRoutes_Click" />
+                            <TextBlock x:Name="RouteAgeText" Foreground="{StaticResource Warning}" VerticalAlignment="Center" Margin="12,0,0,0" />
+                        </WrapPanel>
+                    </Border>
+
+                    <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+                        <Button x:Name="SelectRouteButton" DockPanel.Dock="Right" Content="Run this route alone ▶" IsEnabled="False"
+                                Click="SelectRoute_Click" Margin="10,0,0,0" />
+                        <TextBlock x:Name="RouteStatus" Style="{StaticResource Dim}" VerticalAlignment="Center" TextWrapping="Wrap"
+                                   Text="Pick a mode and press Populate. Hover a row for the full profit breakdown." />
+                    </DockPanel>
+
+                    <!-- Trade run: several items for one buy → sell trip, packed into the hold and wallet you had before buying. -->
+                    <Border DockPanel.Dock="Right" Width="320" Margin="12,0,0,0" Padding="14,12"
+                            Background="{StaticResource Panel}" BorderBrush="{StaticResource Edge}" BorderThickness="1">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Top">
+                                <TextBlock Text="TRADE RUN" Style="{StaticResource Caption}" />
+                                <TextBlock x:Name="RunHeader" FontWeight="Bold" FontSize="15" TextWrapping="Wrap" Margin="0,4,0,10"
+                                           Text="Add routes to plan one trip" />
+                                <DockPanel>
+                                    <TextBlock Text="CARGO" Style="{StaticResource Caption}" />
+                                    <TextBlock x:Name="RunCargoText" HorizontalAlignment="Right" FontSize="12" />
+                                </DockPanel>
+                                <ProgressBar x:Name="RunCargoBar" Margin="0,4,0,10" Maximum="1" />
+                                <DockPanel x:Name="RunOreRow" Visibility="Collapsed">
+                                    <TextBlock Text="MINING HOLD" Style="{StaticResource Caption}" />
+                                    <TextBlock x:Name="RunOreText" HorizontalAlignment="Right" FontSize="12" />
+                                </DockPanel>
+                                <ProgressBar x:Name="RunOreBar" Margin="0,4,0,10" Maximum="1" Visibility="Collapsed" Foreground="{StaticResource Warning}" />
+                                <DockPanel>
+                                    <TextBlock Text="ISK" Style="{StaticResource Caption}" />
+                                    <TextBlock x:Name="RunCashText" HorizontalAlignment="Right" FontSize="12" />
+                                </DockPanel>
+                                <ProgressBar x:Name="RunCashBar" Margin="0,4,0,10" Maximum="1" Foreground="{StaticResource Positive}" />
+                                <DockPanel Margin="0,2,0,10">
+                                    <TextBlock Text="EST. PROFIT" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                    <TextBlock x:Name="RunProfitText" HorizontalAlignment="Right" FontWeight="Bold" FontSize="16"
+                                               Foreground="{StaticResource Positive}" />
+                                </DockPanel>
+                                <Border Height="1" Background="{StaticResource Edge}" Margin="0,0,0,6" />
+                            </StackPanel>
+
+                            <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+                                <TextBlock x:Name="RunMessage" FontSize="11" TextWrapping="Wrap" Foreground="{StaticResource TextDim}" Margin="0,0,0,8"
+                                           Text="Space and ISK are measured against your hold and wallet before the run." />
+                                <UniformGrid Columns="2">
+                                    <Button x:Name="AddToRunButton" Content="Add selected" Margin="0,0,4,4" Click="AddToRun_Click" IsEnabled="False" />
+                                    <Button x:Name="AutoFillButton" Content="Auto-fill" Margin="4,0,0,4" Click="AutoFill_Click"
+                                            ToolTip="Fill the rest of the hold with the best items for this run's route (or the best route if empty)" />
+                                    <Button Content="Clear" Margin="0,4,4,0" Click="ClearRun_Click" />
+                                    <Button x:Name="StartRunButton" Content="Start run ▶" Style="{StaticResource Primary}" Margin="4,4,0,0"
+                                            Click="StartRun_Click" IsEnabled="False" />
+                                </UniformGrid>
+                            </StackPanel>
+
+                            <ListBox x:Name="RunList" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Text}"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch">
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBoxItem">
+                                                    <Border BorderBrush="{StaticResource RowLine}" BorderThickness="0,0,0,1" Padding="0,8">
+                                                        <ContentPresenter />
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right" Content="✕" FontFamily="Segoe UI Symbol" Padding="7,2" Margin="8,0,0,0"
+                                                    VerticalAlignment="Center" Click="RemoveRunItem_Click" Tag="{Binding Route}" ToolTip="Remove from run" />
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding ProfitText}" Foreground="{StaticResource Positive}"
+                                                       FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{StaticResource TextDim}" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+                    </Border>
+
+                    <DataGrid x:Name="RoutesGrid" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
+                              SelectionMode="Single" CanUserSortColumns="True" SelectionChanged="RoutesGrid_SelectionChanged"
+                              RowStyle="{StaticResource PnlRow}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="ITEM" Binding="{Binding Item}" Width="*" MinWidth="150" ElementStyle="{StaticResource Ellipsis}" />
+                            <DataGridTextColumn Header="BUY AT" Binding="{Binding BuyAt}" Width="125" ElementStyle="{StaticResource Ellipsis}" />
+                            <DataGridTextColumn Header="SELL AT" Binding="{Binding SellAt}" Width="125" ElementStyle="{StaticResource Ellipsis}" />
+                            <DataGridTextColumn Header="JUMPS" Binding="{Binding JumpsText}" SortMemberPath="Jumps" Width="115" ElementStyle="{StaticResource Num}" />
+                            <DataGridTextColumn Header="UNITS" Binding="{Binding Units, StringFormat=N0}" SortMemberPath="Units" Width="80" ElementStyle="{StaticResource Num}" />
+                            <DataGridTextColumn Header="SEED COST" Binding="{Binding SeedCostText}" SortMemberPath="SeedCost" Width="90" ElementStyle="{StaticResource Cost}" />
+                            <DataGridTextColumn Header="EST. PROFIT" Binding="{Binding ProfitText}" SortMemberPath="Profit" Width="95" ElementStyle="{StaticResource Money}" />
+                            <DataGridTextColumn Header="PER JUMP" Binding="{Binding ProfitPerJumpText}" SortMemberPath="ProfitPerJump" Width="80" ElementStyle="{StaticResource Gain}" />
+                            <DataGridTextColumn Header="MARGIN" Binding="{Binding MarginText}" SortMemberPath="Margin" Width="70" ElementStyle="{StaticResource Gain}" />
+                            <DataGridTextColumn Header="SOLD / DAY" Binding="{Binding DailyVolume}" SortMemberPath="Daily" Width="85" ElementStyle="{StaticResource Demand}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <!-- ================= Sell my items ================= -->
+            <TabItem Header="Sell my items">
+                <DockPanel Margin="14">
+                    <Border DockPanel.Dock="Top" Style="{StaticResource FilterBar}">
+                        <WrapPanel>
+                            <TextBlock Text="For" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <ComboBox x:Name="SellCharBox" Width="180" Margin="0,0,18,0" />
+                            <RadioButton x:Name="SellHubsRadio" Content="Hub to hub" IsChecked="True"
+                                         VerticalAlignment="Center" Margin="0,0,14,0" GroupName="SellMode" />
+                            <RadioButton x:Name="SellJumpsRadio" Content="Within" VerticalAlignment="Center" GroupName="SellMode" />
+                            <TextBox x:Name="SellRadiusBox" Width="40" Margin="6,0" TextAlignment="Center" />
+                            <TextBlock Text="jumps" VerticalAlignment="Center" Margin="0,0,18,0" />
+                            <CheckBox x:Name="SellSafeBox" Content="Avoid low-sec" VerticalAlignment="Center" Margin="0,0,18,0" />
+                            <Button x:Name="PopulateSellButton" Content="Populate" Style="{StaticResource Primary}" Click="PopulateSell_Click" />
+                            <TextBlock x:Name="SellAgeText" Foreground="{StaticResource Warning}" VerticalAlignment="Center" Margin="12,0,0,0" />
+                        </WrapPanel>
+                    </Border>
+
+                    <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+                        <Button x:Name="SellItemButton" DockPanel.Dock="Right" Content="Sell this item ▶" Style="{StaticResource Primary}"
+                                IsEnabled="False" Click="SellItem_Click" Margin="10,0,0,0" />
+                        <TextBlock x:Name="SellStatus" Style="{StaticResource Dim}" VerticalAlignment="Center" TextWrapping="Wrap"
+                                   Text="Lists what you own and the best place to sell it. Asset data from EVE can be up to an hour old." />
+                    </DockPanel>
+
+                    <DataGrid x:Name="SellGrid" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
+                              SelectionMode="Single" CanUserSortColumns="True" SelectionChanged="SellGrid_SelectionChanged"
+                              RowStyle="{StaticResource PnlRow}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="ITEM" Binding="{Binding Item}" Width="*" MinWidth="180" ElementStyle="{StaticResource Ellipsis}" />
+                            <DataGridTextColumn Header="QTY" Binding="{Binding Quantity, StringFormat=N0}" SortMemberPath="Quantity" Width="90" ElementStyle="{StaticResource Num}" />
+                            <DataGridTextColumn Header="NOW AT" Binding="{Binding Where}" Width="200" ElementStyle="{StaticResource Ellipsis}" />
+                            <DataGridTextColumn Header="HOW" Binding="{Binding How}" Width="170" ElementStyle="{StaticResource How}" />
+                            <DataGridTextColumn Header="SELL AT" Binding="{Binding SellAt}" Width="135" ElementStyle="{StaticResource Ellipsis}" />
+                            <DataGridTextColumn Header="PRICE" Binding="{Binding UnitPriceText}" Width="100" ElementStyle="{StaticResource Num}" />
+                            <DataGridTextColumn Header="JUMPS" Binding="{Binding Jumps}" Width="70" ElementStyle="{StaticResource Num}" />
+                            <DataGridTextColumn Header="NET" Binding="{Binding NetText}" SortMemberPath="Net" Width="100" ElementStyle="{StaticResource Money}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

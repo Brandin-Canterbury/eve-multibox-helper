@@ -60,7 +60,7 @@ public sealed class KeySender
     }
 }
 
-/// <summary>Real keyboard input through SendInput. Sends the whole chord in one call so nothing can interleave.</summary>
+/// <summary>Real keyboard input through SendInput: one key tap (with any modifiers), held briefly like a real press.</summary>
 public sealed class Win32InputBackend : IInputBackend
 {
     private const int VK_SHIFT = 0x10, VK_CONTROL = 0x11, VK_MENU = 0x12;
@@ -78,6 +78,16 @@ public sealed class Win32InputBackend : IInputBackend
 
     public bool IsWindow(IntPtr hwnd) => Win32.IsWindow(hwnd);
 
+    /// <summary>
+    /// How long the key is held, like a finger tap. EVE samples keys once per frame: a press and
+    /// release in the same instant can be seen as "pressed" but never "released", which leaves the
+    /// key stuck down (for D that's the "click where to jump" prompt).
+    /// </summary>
+    public const int TapHoldMs = 60;
+
+    /// <summary>Small gap after pressing modifiers, so Ctrl/Alt/Shift are down before the key itself.</summary>
+    public const int ModifierLeadMs = 15;
+
     public bool SendChord(KeyChord chord)
     {
         var mods = new List<int>(3);
@@ -85,12 +95,22 @@ public sealed class Win32InputBackend : IInputBackend
         if (chord.Alt) mods.Add(VK_MENU);
         if (chord.Shift) mods.Add(VK_SHIFT);
 
-        var inputs = new List<INPUT>(8);
-        foreach (int m in mods) inputs.Add(Key(m, up: false));
-        inputs.Add(Key(chord.VirtualKey, up: false));
-        inputs.Add(Key(chord.VirtualKey, up: true));
-        for (int i = mods.Count - 1; i >= 0; i--) inputs.Add(Key(mods[i], up: true));
+        bool ok = true;
+        if (mods.Count > 0)
+        {
+            ok &= Send(mods.Select(m => Key(m, up: false)));
+            Thread.Sleep(ModifierLeadMs);
+        }
+        ok &= Send(new[] { Key(chord.VirtualKey, up: false) });
+        Thread.Sleep(TapHoldMs);
+        // Always release, even if something above failed, so nothing is left held down.
+        ok &= Send(new[] { Key(chord.VirtualKey, up: true) });
+        if (mods.Count > 0) ok &= Send(Enumerable.Range(0, mods.Count).Reverse().Select(i => Key(mods[i], up: true)));
+        return ok;
+    }
 
+    private static bool Send(IEnumerable<INPUT> inputs)
+    {
         var array = inputs.ToArray();
         return Win32.SendInput((uint)array.Length, array, System.Runtime.InteropServices.Marshal.SizeOf<INPUT>()) == array.Length;
     }
