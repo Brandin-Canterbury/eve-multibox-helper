@@ -34,6 +34,8 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
+# ...except the app's log-reading source code, which lives in a folder named Logs.
+!src/EveMultibox/Logs/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
