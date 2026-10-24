@@ -105,11 +105,7 @@ public partial class TradeWindow : Window
             _candidates = routes.Candidates ?? savedRoutes.Select(r => r.Route).ToList();
             _shownFilter = (routes.FilterFrom, routes.FilterTo);
             RouteFilterCount.Text = $"{rows.Count} routes  ·  from {_candidates.Count:N0} candidates";
-            if (_trade.CurrentRun is null)
-            {
-                string name = _trade.Characters.FirstOrDefault(c => c.Id == routes.CharacterId)?.Name ?? "";
-                StartNewRun(sde, name, routes.FreeCargo, routes.FreeOreHold, routes.Wallet);
-            }
+            if (_trade.CurrentRun is null) StartNewRun(sde, routes.CharacterId, routes.FreeCargo, routes.FreeOreHold, routes.Wallet);
         }
         RefreshRun();
 
@@ -298,8 +294,18 @@ public partial class TradeWindow : Window
                 s.Market.FetchedAt, "", new List<SavedRoute>(), null,
                 _trade.StationNamesFor(candidates.SelectMany(r => new[] { r.SourceStation, r.DestStation })),
                 trader.FreeCargo, trader.FreeOreHold, trader.Wallet, candidates);
-            StartNewRun(s.Sde, s.Character.Name, trader.FreeCargo, trader.FreeOreHold, trader.Wallet,
-                cleared: _trade.CurrentRun?.Items.Count > 0);
+            if (reuseMarket && _trade.Runs.Switch(s.Character.Id))
+            {
+                // Same market data, so this character's run from earlier still holds.
+                RefreshRun($"Back to {s.Character.Name}'s run.");
+            }
+            else
+            {
+                // New market data: every run's prices are stale. Plans already in a widget carry on.
+                bool hadItems = !reuseMarket && _trade.Runs.AnyItems;
+                if (!reuseMarket) _trade.Runs.Reset();
+                StartNewRun(s.Sde, s.Character.Id, trader.FreeCargo, trader.FreeOreHold, trader.Wallet, cleared: hadItems);
+            }
             UpdateAges();
 
             // Demand-check and show the routes for the current From / To choice.
@@ -646,19 +652,14 @@ public partial class TradeWindow : Window
 
     private sealed record RunItemView(RouteCandidate Route, string Name, string Detail, string ProfitText);
 
-    /// <summary>Whose hold and wallet the current run is sized for (kept with the run, across window closes).</summary>
-    private string? RunCharacter
-    {
-        get => _trade.CurrentRunFor;
-        set => _trade.CurrentRunFor = value;
-    }
+    /// <summary>Whose hold and wallet the current run is sized for.</summary>
+    private CharacterState? RunCharacter => _trade.Characters.FirstOrDefault(c => c.Id == _trade.Runs.CurrentFor);
 
     /// <summary>A fresh, empty run sized to one character's free hold and wallet before buying.</summary>
-    private void StartNewRun(SdeData sde, string characterName, double cargo, double ore, double wallet, bool cleared = false)
+    private void StartNewRun(SdeData sde, long characterId, double cargo, double ore, double wallet, bool cleared = false)
     {
-        RunCharacter = characterName;
-        _trade.CurrentRun = new TradeRun(cargo, ore, wallet, type => sde.Types.TryGetValue(type, out var t) && t.IsOre);
-        RefreshRun(cleared ? "New market data or character, so the run was cleared. Add routes again." : null);
+        _trade.Runs.Start(characterId, new TradeRun(cargo, ore, wallet, type => sde.Types.TryGetValue(type, out var t) && t.IsOre));
+        RefreshRun(cleared ? "New market data, so the runs were cleared. Add routes again." : null);
     }
 
     private bool _restoring;
@@ -670,7 +671,7 @@ public partial class TradeWindow : Window
     private async void RouteCharBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_restoring || !IsLoaded || RouteCharBox.SelectedItem is not CharacterState c || _trade.LastRoutes is not { } last) return;
-        if (last.CharacterId == c.Id && RunCharacter == c.Name) return;
+        if (last.CharacterId == c.Id && _trade.Runs.CurrentFor == c.Id) return;
 
         if (_routeMarket is not null)
         {
@@ -684,8 +685,15 @@ public partial class TradeWindow : Window
         {
             if (await _trade.EnsureStaticDataAsync() is not { } sde) return;
             await _trade.RefreshCharacterAsync(c);
-            var trader = MarketService.Trader(c, await _market.AssetsAsync(c, CancellationToken.None), sde);
-            StartNewRun(sde, c.Name, trader.FreeCargo, trader.FreeOreHold, trader.Wallet, cleared: _trade.CurrentRun?.Items.Count > 0);
+            if (_trade.Runs.Switch(c.Id))
+            {
+                RefreshRun($"Back to {c.Name}'s run.");
+            }
+            else
+            {
+                var trader = MarketService.Trader(c, await _market.AssetsAsync(c, CancellationToken.None), sde);
+                StartNewRun(sde, c.Id, trader.FreeCargo, trader.FreeOreHold, trader.Wallet);
+            }
             string owner = _trade.Characters.FirstOrDefault(x => x.Id == last.CharacterId)?.Name ?? "another character";
             RouteStatus.Foreground = (System.Windows.Media.Brush)FindResource("Warning");
             RouteStatus.Text = $"The run is now sized for {c.Name}, but these routes were sized for {owner}. " +
@@ -709,7 +717,7 @@ public partial class TradeWindow : Window
             return;
         }
 
-        RunCaption.Text = string.IsNullOrEmpty(RunCharacter) ? "TRADE RUN" : $"TRADE RUN · SIZED FOR {RunCharacter.ToUpperInvariant()}";
+        RunCaption.Text = RunCharacter is { } owner ? $"TRADE RUN · SIZED FOR {owner.Name.ToUpperInvariant()}" : "TRADE RUN";
         RunHeader.Text = run.SourceStation is long src && run.DestStation is long dst
             ? $"{ShortStation(src)} → {ShortStation(dst)}"
             : "Add routes to plan one trip";
@@ -777,16 +785,17 @@ public partial class TradeWindow : Window
 
     private void StartRun_Click(object sender, RoutedEventArgs e)
     {
-        if (_trade.CurrentRun is not { Items.Count: > 0 } run || RouteCharBox.SelectedItem is not CharacterState c || _trade.Sde.Data is not { } sde) return;
-        _app.ShowActionPlan(Widget.TradePlans.ForRun(run, c, sde, _trade.CachedStationName));
-        RunMessage.Text = $"Run started in the action widget for {c.Name}.";
+        // The run goes to the character it was sized for.
+        if (_trade.CurrentRun is not { Items.Count: > 0 } run || RunCharacter is not { } c || _trade.Sde.Data is not { } sde) return;
+        if (_app.ShowActionPlan(Widget.TradePlans.ForRun(run, c, sde, _trade.CachedStationName)))
+            RunMessage.Text = $"Run started in {c.Name}'s action widget. Pick another character to plan their run too.";
     }
 
     private void SelectRoute_Click(object sender, RoutedEventArgs e)
     {
         if (RoutesGrid.SelectedItem is not RouteRow row || RouteCharBox.SelectedItem is not CharacterState c || _trade.Sde.Data is not { } sde) return;
-        _app.ShowActionPlan(Widget.TradePlans.ForRoute(row, c, sde));
-        RouteStatus.Text = $"Route started in the action widget for {c.Name}.";
+        if (_app.ShowActionPlan(Widget.TradePlans.ForRoute(row, c, sde)))
+            RouteStatus.Text = $"Route started in {c.Name}'s action widget.";
     }
 
     // ---- Sell my items ----
@@ -840,8 +849,8 @@ public partial class TradeWindow : Window
     private void SellItem_Click(object sender, RoutedEventArgs e)
     {
         if (SellGrid.SelectedItem is not SellRow row || SellCharBox.SelectedItem is not CharacterState c || _trade.Sde.Data is not { } sde) return;
-        _app.ShowActionPlan(Widget.TradePlans.ForSale(row, c, sde));
-        SellStatus.Text = $"Selling {row.Item} in the action widget for {c.Name}.";
+        if (_app.ShowActionPlan(Widget.TradePlans.ForSale(row, c, sde)))
+            SellStatus.Text = $"Selling {row.Item} in {c.Name}'s action widget.";
     }
 
     private async Task BuildHubButtonsAsync()

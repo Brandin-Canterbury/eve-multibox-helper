@@ -116,3 +116,43 @@ public sealed class TradeRun
                 return share > 0 ? perUnit / share : perUnit;
             });
 }
+
+/// <summary>
+/// One trade run per character, so you can plan a run for one character, start it, then plan
+/// another character's run without losing the first.
+/// </summary>
+public sealed class TradeRuns
+{
+    private readonly Dictionary<long, TradeRun> _runs = new();
+
+    /// <summary>The character whose run the Trade Routes tab is showing.</summary>
+    public long? CurrentFor { get; private set; }
+
+    public TradeRun? Current => CurrentFor is long id ? For(id) : null;
+
+    public TradeRun? For(long characterId) => _runs.TryGetValue(characterId, out var run) ? run : null;
+
+    public bool AnyItems => _runs.Values.Any(r => r.Items.Count > 0);
+
+    /// <summary>A new run for this character (replacing theirs), and makes it current.</summary>
+    public void Start(long characterId, TradeRun run)
+    {
+        _runs[characterId] = run;
+        CurrentFor = characterId;
+    }
+
+    /// <summary>Makes this character's existing run current; false if they don't have one yet.</summary>
+    public bool Switch(long characterId)
+    {
+        if (!_runs.ContainsKey(characterId)) return false;
+        CurrentFor = characterId;
+        return true;
+    }
+
+    /// <summary>Forgets every run (e.g. new market data made their prices stale).</summary>
+    public void Reset()
+    {
+        _runs.Clear();
+        CurrentFor = null;
+    }
+}

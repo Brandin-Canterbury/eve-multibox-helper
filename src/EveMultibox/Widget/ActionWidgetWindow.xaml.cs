@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Threading;
 using EveMultibox.Clients;
 using EveMultibox.Config;
@@ -32,7 +33,7 @@ public partial class ActionWidgetWindow : Window
     private int _ticks;
     private bool _finished;
 
-    public ActionWidgetWindow(App app, ActionPlan plan, TradeService trade, ClientTracker tracker)
+    public ActionWidgetWindow(App app, ActionPlan plan, TradeService trade, ClientTracker tracker, WindowSpot spot)
     {
         InitializeComponent();
         Shell.WindowLook.Apply(this);
@@ -42,17 +43,15 @@ public partial class ActionWidgetWindow : Window
         _tracker = tracker;
         _graph = trade.Sde.Data is { } sde ? new JumpGraph(sde.Systems) : null;
 
-        if (app.Config.Widget.Position is WindowSpot spot)
-        {
-            Left = spot.X;
-            Top = spot.Y;
-        }
-        else
-        {
-            var work = SystemParameters.WorkArea;
-            Left = work.Right - Width - 80;
-            Top = work.Top + 120;
-        }
+        Left = spot.X;
+        Top = spot.Y;
+
+        // Each character's widget wears that character's client color, so two running side by side are easy to tell apart.
+        var color = Util.Visuals.ParseColor(app.Config.FindProfile(plan.CharacterName)?.Color, Util.Visuals.ParseColor("#4DA6FF", Colors.SteelBlue));
+        BorderBrush = Util.Visuals.Brush(color);
+        CharacterText.Foreground = Util.Visuals.Brush(color);
+        CharacterText.Text = plan.CharacterName;
+        Title = $"{plan.CharacterName} · {plan.Title}";
 
         SourceInitialized += (_, _) =>
             Win32.AddExStyle(new WindowInteropHelper(this).Handle, Win32.WS_EX_NOACTIVATE | Win32.WS_EX_TOOLWINDOW);
@@ -65,13 +64,20 @@ public partial class ActionWidgetWindow : Window
         Closed += (_, _) => _timer.Stop();
     }
 
+    public ActionPlan Plan => _plan;
+
+    /// <summary>"step 3 of 8", or "finished".</summary>
+    public string Progress => _finished ? "finished" : $"step {_index + 1} of {_plan.Steps.Count}";
+
+    public bool Finished => _finished;
+
     private ActionStep Step => _plan.Steps[_index];
 
     private CharacterState? Character => _trade.Characters.FirstOrDefault(c => c.Id == _plan.CharacterId);
 
     private void ShowStep()
     {
-        PlanText.Text = $"{_plan.Title} · {_plan.CharacterName} · step {_index + 1} of {_plan.Steps.Count}";
+        PlanText.Text = $"{_plan.Title} · step {_index + 1} of {_plan.Steps.Count}";
         StepTitle.Text = Step.Title;
         InstructionText.Text = Step.Instruction;
         DoneButton.Content = Step.DoneLabel + "  ▶";
@@ -225,7 +231,7 @@ public partial class ActionWidgetWindow : Window
     {
         if (!Win32.IsAltDown()) return;
         DragMove();
-        _app.Config.Widget.Position = new WindowSpot { X = Left, Y = Top };
+        _app.Config.Widget.Positions[_plan.CharacterId] = new WindowSpot { X = Left, Y = Top };
         _app.SaveQuietly();
     }
 }

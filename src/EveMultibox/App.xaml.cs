@@ -241,15 +241,41 @@ public partial class App : Application
             "Phoenix's Eve Helper", MessageBoxButton.OK, MessageBoxImage.Warning);
     }
 
-    private Widget.ActionWidgetWindow? _widget;
+    /// <summary>One action widget per character, so several characters can each run their own plan.</summary>
+    private readonly Dictionary<long, Widget.ActionWidgetWindow> _widgets = new();
 
-    /// <summary>Shows the action widget with a new plan, replacing any plan in progress.</summary>
-    public void ShowActionPlan(Widget.ActionPlan plan)
+    /// <summary>
+    /// Shows a plan in its character's own widget. Other characters' widgets are left alone; if this
+    /// character is part-way through another plan, asks before replacing it.
+    /// </summary>
+    /// <returns>False if the user chose to keep the plan already running.</returns>
+    public bool ShowActionPlan(Widget.ActionPlan plan)
     {
-        _widget?.Close();
-        _widget = new Widget.ActionWidgetWindow(this, plan, _trade, _tracker);
-        _widget.Closed += (_, _) => _widget = null;
-        _widget.Show();
+        long id = plan.CharacterId;
+        WindowSpot? spot = null;
+        if (_widgets.TryGetValue(id, out var old))
+        {
+            if (!old.Finished && MessageBox.Show(
+                    $"{plan.CharacterName} is on {old.Progress} of \"{old.Plan.Title}\".\n\nReplace it with \"{plan.Title}\"?",
+                    "Phoenix's Eve Helper", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            {
+                return false;
+            }
+            spot = new WindowSpot { X = old.Left, Y = old.Top };
+            old.Close();
+        }
+
+        var work = SystemParameters.WorkArea;
+        spot ??= Widget.WidgetPlacement.For(Config.Widget, id,
+            _widgets.Values.Select(w => new WindowSpot { X = w.Left, Y = w.Top }).ToList(), 340, work.Right, work.Top);
+        var widget = new Widget.ActionWidgetWindow(this, plan, _trade, _tracker, spot);
+        _widgets[id] = widget;
+        widget.Closed += (_, _) =>
+        {
+            if (_widgets.TryGetValue(id, out var current) && ReferenceEquals(current, widget)) _widgets.Remove(id);
+        };
+        widget.Show();
+        return true;
     }
 
     public void ShowTrade()

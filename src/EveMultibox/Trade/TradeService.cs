@@ -44,11 +44,11 @@ public sealed class TradeService
     public SdeStore Sde { get; }
     public EsiClient Esi => _esi;
 
-    /// <summary>The trade run being planned in the Trade Routes tab (kept while the helper runs).</summary>
-    public TradeRun? CurrentRun { get; set; }
+    /// <summary>Each character's trade run being planned in the Trade Routes tab (kept while the helper runs).</summary>
+    public TradeRuns Runs { get; } = new();
 
-    /// <summary>The character whose hold and wallet <see cref="CurrentRun"/> is sized for.</summary>
-    public string? CurrentRunFor { get; set; }
+    /// <summary>The run for the character picked in the Trade Routes tab.</summary>
+    public TradeRun? CurrentRun => Runs.Current;
 
     private readonly ResultsStore _results = new(ResultsStore.DefaultPath);
     private bool _resultsLoaded;

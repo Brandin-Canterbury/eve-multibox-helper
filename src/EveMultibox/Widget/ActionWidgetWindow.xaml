@@ -4,7 +4,7 @@
         Title="EVE action widget"
         WindowStyle="None" ResizeMode="NoResize" SizeToContent="Height" Width="340"
         Topmost="True" ShowInTaskbar="False" ShowActivated="False"
-        Background="#1E1E22" BorderBrush="#4DA6FF" BorderThickness="1" Foreground="#DDDDE4">
+        Background="#1E1E22" BorderBrush="#4DA6FF" BorderThickness="2" Foreground="#DDDDE4">
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -27,7 +27,9 @@
             <DockPanel>
                 <Button DockPanel.Dock="Right" Content="✕" FontFamily="Segoe UI Symbol" Padding="8,3" Focusable="False"
                         BorderThickness="0" Background="Transparent" Click="Cancel_Click" ToolTip="Stop this plan" />
-                <TextBlock x:Name="PlanText" Margin="10,5" FontSize="11" Foreground="{StaticResource TextDim}"
+                <TextBlock x:Name="CharacterText" DockPanel.Dock="Left" Margin="10,5,0,5" FontWeight="Bold"
+                           VerticalAlignment="Center" />
+                <TextBlock x:Name="PlanText" Margin="8,5" FontSize="11" Foreground="{StaticResource TextDim}"
                            TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
             </DockPanel>
         </Border>

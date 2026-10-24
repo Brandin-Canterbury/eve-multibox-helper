@@ -184,7 +184,11 @@ public sealed class WidgetSettings
     /// <summary>EVE's undock shortcut (no default binding is assumed; set the one you use).</summary>
     public string? UndockKey { get; set; }
 
+    /// <summary>Where the first widget opens when a character has no spot of its own yet.</summary>
     public WindowSpot? Position { get; set; }
+
+    /// <summary>Each character's widget remembers its own spot (by character ID).</summary>
+    public Dictionary<long, WindowSpot> Positions { get; set; } = new();
 }
 
 /// <summary>
