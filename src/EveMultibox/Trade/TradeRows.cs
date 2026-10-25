@@ -108,6 +108,8 @@ public sealed class RouteRow : ObservableObject
         {
             if (!Set(ref _daily, value)) return;
             OnPropertyChanged(nameof(DailyVolume));
+            OnPropertyChanged(nameof(Weekly));
+            OnPropertyChanged(nameof(WeeklyVolume));
             OnPropertyChanged(nameof(DemandTone));
             BuildLines();
             OnPropertyChanged(nameof(PnlLines));
@@ -115,6 +117,11 @@ public sealed class RouteRow : ObservableObject
     }
 
     public string DailyVolume => Daily is double d ? $"{d:N0}" : "…";
+
+    /// <summary>Units sold at the destination region over the last 7 days (the daily figure is this ÷ 7).</summary>
+    public double? Weekly => Daily * 7;
+
+    public string WeeklyVolume => Weekly is double w ? $"{w:N0}" : "…";
 
     /// <summary>Yellow when it would take more than a day of the destination's sales to clear the load.</summary>
     public Tone DemandTone => Daily is double d && Route.Units > d ? Tone.Warning : Tone.Normal;
@@ -146,7 +153,10 @@ public sealed class RouteRow : ObservableObject
         if (r.InstantSellPrice is double instant)
             lines.Add(new("Instant sell there", $"{instant:N2} each", instant >= BreakEven ? Tone.Normal : Tone.Warning));
         if (Daily is double d)
+        {
             lines.Add(new("Sold per day there", $"{d:N0}", r.Units > d ? Tone.Warning : Tone.Normal));
+            lines.Add(new("Sold last week there", $"{d * 7:N0}", Tone.Dim));
+        }
         if (r.LimitedByCargo) lines.Add(PnlLine.Note("Limited by your free hold space.", Tone.Warning));
         if (r.LimitedByWallet) lines.Add(PnlLine.Note("Limited by your wallet.", Tone.Warning));
         PnlLines = lines;

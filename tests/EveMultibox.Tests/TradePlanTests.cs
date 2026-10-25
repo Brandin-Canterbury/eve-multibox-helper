@@ -125,4 +125,15 @@ public class TradePlanTests
         var plan = TradePlans.ForSale(row, Char(Jita), Sde);
         Assert.Equal(new[] { "Load", "Sell" }, Titles(plan));
     }
+
+    [Fact]
+    public void SoldPerWeekIsTheLastSevenDaysTotal()
+    {
+        var row = Route();
+        Assert.Equal("…", row.WeeklyVolume);
+        row.Daily = 1_234.5;
+        Assert.Equal(8_641.5, row.Weekly);
+        Assert.Equal("8,642", row.WeeklyVolume);
+        Assert.Contains(row.PnlLines, l => l.Label == "Sold last week there" && l.Value == "8,642");
+    }
 }

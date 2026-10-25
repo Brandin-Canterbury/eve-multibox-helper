@@ -348,6 +348,7 @@
                             <DataGridTextColumn Header="PER JUMP" Binding="{Binding ProfitPerJumpText}" SortMemberPath="ProfitPerJump" Width="80" ElementStyle="{StaticResource Gain}" />
                             <DataGridTextColumn Header="MARGIN" Binding="{Binding MarginText}" SortMemberPath="Margin" Width="70" ElementStyle="{StaticResource Gain}" />
                             <DataGridTextColumn Header="SOLD / DAY" Binding="{Binding DailyVolume}" SortMemberPath="Daily" Width="85" ElementStyle="{StaticResource Demand}" />
+                            <DataGridTextColumn Header="SOLD / WEEK" Binding="{Binding WeeklyVolume}" SortMemberPath="Weekly" Width="90" ElementStyle="{StaticResource Num}" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>
