@@ -28,6 +28,7 @@ public partial class App : Application
     private TradeService _trade = null!;
     private TradeWindow? _tradeWindow;
     private readonly AlertEngine _alertEngine = new();
+    private Edge.EdgeApiServer? _edgeApi;
 
     public AppConfig Config { get; private set; } = null!;
 
@@ -102,6 +103,9 @@ public partial class App : Application
         if (firstRun) OpenMultiboxerSettings();
         _ = _trade.StartAsync();
         _notifications.Start();
+        // Lets Xeneon Edge Hub (on this PC) show the clients, characters, alerts and orders.
+        _edgeApi = new Edge.EdgeApiServer(this, _tracker, _trade, Orders, Edge.EdgeApiSettings.LoadOrCreate(Edge.EdgeApiSettings.DefaultPath));
+        _edgeApi.Start();
         // --open-trade opens the Trade window at start-up (handy right after restarting the helper).
         if (e.Args.Contains("--open-trade")) ShowTrade();
 
@@ -347,6 +351,7 @@ public partial class App : Application
     public void Quit()
     {
         IsQuitting = true;
+        _edgeApi?.Dispose();
         Shutdown();
     }
 

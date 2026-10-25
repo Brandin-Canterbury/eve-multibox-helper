@@ -240,6 +240,7 @@ public sealed class TradeService
             var ship = await _esi.GetAsync<EsiShip>($"characters/{c.Id}/ship", token);
             c.ShipTypeId = ship.ShipTypeId;
             c.ShipItemId = ship.ShipItemId;
+            c.ShipName = ship.ShipName;
             var shipType = sde?.Types.GetValueOrDefault(ship.ShipTypeId);
             c.CargoCapacity = shipType?.Capacity ?? 0;
             c.OreHoldCapacity = shipType?.OreHold ?? 0;

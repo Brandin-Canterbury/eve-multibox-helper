@@ -37,6 +37,9 @@ public sealed class CharacterState : ObservableObject
     public int? ShipTypeId { get => _shipTypeId; set => Set(ref _shipTypeId, value); }
     public string ShipText { get => _shipText; set => Set(ref _shipText, value); }
 
+    /// <summary>The name the pilot gave the ship ("Phoenix's Hauler"), as opposed to its type.</summary>
+    public string? ShipName { get; set; }
+
     /// <summary>Cargo hold of the current ship in m³ (0 if unknown).</summary>
     public double CargoCapacity { get; set; }
 
