@@ -130,7 +130,15 @@ public sealed class TradeService
         string token = await Auth.GetAccessTokenAsync(character.Id);
         string clear = addAsWaypoint ? "false" : "true";
         await _esi.PostAsync($"ui/autopilot/waypoint?add_to_beginning=false&clear_other_waypoints={clear}&destination_id={destinationId}", token);
+        // ESI can set the autopilot but can't read it back, so remember what was set here.
+        if (!addAsWaypoint || !_destinations.ContainsKey(character.Id)) _destinations[character.Id] = destinationId;
+        if (destinationId > int.MaxValue || Sde.Data?.Stations.ContainsKey(destinationId) == true) await StationNameAsync(destinationId);
     }
+
+    private readonly Dictionary<long, long> _destinations = new();
+
+    /// <summary>The last destination set through the helper for a character (a station or system ID), if any.</summary>
+    public long? DestinationOf(long characterId) => _destinations.TryGetValue(characterId, out long d) ? d : null;
 
     private sealed record EsiName(long Id, string Name, string Category);
 

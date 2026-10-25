@@ -178,7 +178,9 @@ public sealed class EdgeApiServer : IDisposable
         _trade.CachedStationName,
         _orderSnapshot,
         _profitSnapshot,
-        _ordersUpdated);
+        _ordersUpdated,
+        _trade.DestinationOf,
+        _app.Config.Trade.SaferRoutes);
 
     private bool Focus(string? character)
     {
@@ -248,7 +250,8 @@ public sealed class EdgeApiServer : IDisposable
                 var ledger = await _orders.SyncLedgerAsync(c, stop).ConfigureAwait(false);
                 var now = DateTime.UtcNow;
                 var report = PnlCalculator.Compute(ledger, now.AddDays(-7), now);
-                profit.Add(new EdgePnl(c.Id, c.Name, 7, report.Sales, report.Purchases, report.NetProfit));
+                profit.Add(new EdgePnl(c.Id, c.Name, 7, report.Sales, report.Purchases, report.NetProfit,
+                    report.TradingProfit, report.SalesTax, report.BrokerFees));
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

@@ -166,6 +166,12 @@ public sealed class TradeSettings
     /// <summary>Default radius for the "within N jumps" route search.</summary>
     public int JumpRadius { get; set; } = 8;
 
+    /// <summary>
+    /// Count jumps the way EVE's "prefer safer" autopilot flies: around low-sec where there's a
+    /// high-sec way, even if it's longer. Off counts the shortest route, low-sec and all.
+    /// </summary>
+    public bool SaferRoutes { get; set; } = true;
+
     /// <summary>Trade hub stations: Jita 4-4, Amarr VIII, Dodixie IX-20, Rens VI-8, Hek VIII-12.</summary>
     public List<long> HubStationIds { get; set; } = new() { 60003760, 60008494, 60011866, 60004588, 60005686 };
 

@@ -257,7 +257,7 @@ public partial class TradeWindow : Window
         var averages = reusable ? reuse!.Averages : await _market.AveragePricesAsync(ct);
         var snapshot = reusable ? reuse!.Market : await _market.LoadOrdersAsync(stations, sde, progress, ct);
         await _trade.StationNamesAsync(stations);
-        return new SearchSetup(c, sde, stations, _market.JumpCounter(sde, safe), averages, assets, snapshot, ct);
+        return new SearchSetup(c, sde, stations, _market.JumpCounter(sde, safe, _app.Config.Trade.SaferRoutes), averages, assets, snapshot, ct);
     }
 
     // ---- Trade Routes ----

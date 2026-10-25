@@ -79,8 +79,9 @@ public static class OrderStanding
     {
         if (best is not double b) return (o.IsBuy ? "Only buyer" : "Only seller", false);
         if (o.IsBuy)
-            return b > o.Price ? ($"Outbid by {b - o.Price:N2}", true) : (b == o.Price ? "Tied highest" : "Highest", b == o.Price);
-        return b < o.Price ? ($"Undercut by {o.Price - b:N2}", true) : (b == o.Price ? "Tied lowest" : "Lowest", b == o.Price);
+            return b > o.Price ? ($"Outbid by {b - o.Price:N2}", true) : (b == o.Price ? "Tied highest" : "Highest", false);
+        // A tie still sells (or buys) in turn, so it isn't flagged; only being beaten is.
+        return b < o.Price ? ($"Undercut by {o.Price - b:N2}", true) : (b == o.Price ? "Tied lowest" : "Lowest", false);
     }
 }
 

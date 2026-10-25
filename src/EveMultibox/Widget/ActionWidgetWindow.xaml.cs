@@ -132,7 +132,8 @@ public partial class ActionWidgetWindow : Window
         var c = Character;
         if (Step.TargetSystemId is int target && c?.SystemId is int here && _graph is not null)
         {
-            int? left = _graph.Jumps(here, target);
+            // Count the route the autopilot will actually fly: around low-sec when set to safer.
+            int? left = _app.Config.Trade.SaferRoutes ? _graph.Safer(here, target)?.Jumps : _graph.Jumps(here, target);
             InfoText.Text = left switch
             {
                 null => "",

@@ -39,7 +39,11 @@ public sealed record EdgeCharacter(
     double CargoCapacity,
     double OreHoldCapacity,
     double? Wallet,
-    string? Error);
+    string? Error,
+    EdgeDestination? Destination = null);
+
+/// <summary>Where a character is headed (set through the helper), and how far it is on the route the autopilot will fly.</summary>
+public sealed record EdgeDestination(string Name, string? SystemName, double? Security, int? Jumps, int? LowSecSystems, bool Arrived, bool Safer);
 
 public sealed record EdgeAlert(string Character, string Rule, string Text, DateTime At);
 
@@ -60,7 +64,8 @@ public sealed record EdgeOrder(
     bool NeedsAttention);
 
 /// <summary>A character's trading over the last week, from the saved wallet history.</summary>
-public sealed record EdgePnl(long CharacterId, string Character, int Days, double Sales, double Purchases, double NetProfit);
+public sealed record EdgePnl(long CharacterId, string Character, int Days, double Sales, double Purchases, double NetProfit,
+    double TradingProfit = 0, double SalesTax = 0, double BrokerFees = 0);
 
 public static class EdgeStateBuilder
 {
@@ -75,8 +80,11 @@ public static class EdgeStateBuilder
         Func<long, string> stationName,
         IReadOnlyList<EdgeOrder> orders,
         IReadOnlyList<EdgePnl> profit,
-        DateTimeOffset? ordersUpdated)
+        DateTimeOffset? ordersUpdated,
+        Func<long, long?>? destinationOf = null,
+        bool saferRoutes = true)
     {
+        var graph = sde is not null ? new JumpGraph(sde.Systems) : null;
         var pending = alerts.OrderByDescending(a => a.At).Select(ToEdge).ToList();
         var withClient = clients.Where(c => c.CharacterName is not null)
             .Select(c => c.CharacterName!)
@@ -104,11 +112,45 @@ public static class EdgeStateBuilder
                 docked, location,
                 c.ShipTypeId, c.ShipName,
                 c.ShipTypeId is int t ? sde?.TypeName(t) : null,
-                c.CargoCapacity, c.OreHoldCapacity, c.Wallet, c.Error);
+                c.CargoCapacity, c.OreHoldCapacity, c.Wallet, c.Error,
+                Destination(c, destinationOf?.Invoke(c.Id), sde, graph, stationName, saferRoutes));
         }).ToList();
 
         return new EdgeState(Version, active?.CharacterName, edgeClients, edgeCharacters, pending, orders, profit, ordersUpdated);
     }
 
     private static EdgeAlert ToEdge(Alert a) => new(a.Character, a.Rule.Name, a.Text, a.At);
+
+    /// <summary>The destination as a name, a system and the jumps left on the route the autopilot will fly.</summary>
+    internal static EdgeDestination? Destination(CharacterState c, long? destinationId, SdeData? sde, JumpGraph? graph,
+        Func<long, string> stationName, bool saferRoutes)
+    {
+        if (destinationId is not long id) return null;
+        int? systemId = null;
+        string name;
+        if (sde?.Stations.TryGetValue(id, out var station) == true)
+        {
+            systemId = station!.SystemId;
+            name = stationName(id);
+        }
+        else if (id <= int.MaxValue && sde?.Systems.ContainsKey((int)id) == true)
+        {
+            systemId = (int)id;
+            name = sde.SystemName((int)id);
+        }
+        else
+        {
+            name = stationName(id); // a structure, or something the static data doesn't know
+        }
+
+        var system = systemId is int sid ? sde?.Systems.GetValueOrDefault(sid) : null;
+        int? jumps = null, low = null;
+        if (graph is not null && c.SystemId is int here && systemId is int there)
+        {
+            if (saferRoutes && graph.Safer(here, there) is { } route) (jumps, low) = (route.Jumps, route.LowSecSystems);
+            else if (!saferRoutes) jumps = graph.Jumps(here, there);
+        }
+        bool arrived = c.StationId == id || (c.StationId is null && c.StructureId is null && c.SystemId == systemId && systemId == id);
+        return new EdgeDestination(name, system?.Name, system?.DisplaySecurity, jumps, low, arrived, saferRoutes);
+    }
 }

@@ -66,19 +66,30 @@ public sealed class MarketService
         return sde.Stations.Values.Where(s => systems.ContainsKey(s.SystemId)).Select(s => s.Id).ToList();
     }
 
-    /// <summary>Jump counts, computed once per origin system and reused.</summary>
-    public Func<int, int, int?> JumpCounter(SdeData sde, bool avoidLowSec)
+    /// <summary>
+    /// Jump counts, computed once per origin system and reused. Avoiding low-sec keeps routes in
+    /// high-sec entirely; otherwise <paramref name="saferRoutes"/> counts the route EVE's "prefer
+    /// safer" autopilot would fly, and without it the plain shortest one.
+    /// </summary>
+    public Func<int, int, int?> JumpCounter(SdeData sde, bool avoidLowSec, bool saferRoutes = true)
     {
         var graph = new JumpGraph(sde.Systems);
         return (from, to) =>
         {
             if (from == to) return 0;
+            if (!avoidLowSec && saferRoutes)
+            {
+                if (!_saferRoutes.TryGetValue(from, out var routes)) _saferRoutes[from] = routes = graph.SaferFrom(from);
+                return routes.TryGetValue(to, out var route) ? route.Jumps : null;
+            }
             var key = (from, avoidLowSec);
             if (!_distances.TryGetValue(key, out var dist))
                 _distances[key] = dist = graph.Within(from, int.MaxValue, avoidLowSec ? 0.5 : null);
             return dist.TryGetValue(to, out int d) ? d : null;
         };
     }
+
+    private readonly Dictionary<int, Dictionary<int, JumpGraph.RouteSummary>> _saferRoutes = new();
 
     /// <summary>All orders in every region the stations are in. Large regions take a while the first time.</summary>
     public async Task<MarketSnapshot> LoadOrdersAsync(IReadOnlyCollection<long> stations, SdeData sde, IProgress<string> progress, CancellationToken ct)

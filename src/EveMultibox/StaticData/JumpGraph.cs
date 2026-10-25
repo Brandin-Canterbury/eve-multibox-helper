@@ -42,4 +42,45 @@ public sealed class JumpGraph
         var dist = Within(from, int.MaxValue, minSecurity);
         return dist.TryGetValue(to, out int d) ? d : null;
     }
+
+    /// <summary>A route's length, and how many low- or null-sec systems it passes through (counting the end, not the start).</summary>
+    public sealed record RouteSummary(int Jumps, int LowSecSystems);
+
+    /// <summary>Below this a system counts as low-sec, as in game (0.5 and up is high-sec).</summary>
+    public const double HighSec = 0.5;
+
+    /// <summary>
+    /// Routes from <paramref name="origin"/> to everywhere reachable, the way EVE's "prefer safer"
+    /// autopilot plans them: as few low- and null-sec systems as possible, then as few jumps. A
+    /// high-sec detour of any length beats cutting through one low-sec system, and a trip that
+    /// can't avoid low-sec goes through as little of it as it can.
+    /// </summary>
+    public Dictionary<int, RouteSummary> SaferFrom(int origin)
+    {
+        var best = new Dictionary<int, RouteSummary> { [origin] = new(0, 0) };
+        if (!_systems.ContainsKey(origin)) return best;
+
+        var queue = new PriorityQueue<int, (int Low, int Jumps)>();
+        queue.Enqueue(origin, (0, 0));
+        while (queue.TryDequeue(out int current, out var cost))
+        {
+            var known = best[current];
+            if ((known.LowSecSystems, known.Jumps) != cost) continue; // a better way here was already found
+            foreach (int next in _systems[current].Neighbors)
+            {
+                if (!_systems.TryGetValue(next, out var sys)) continue;
+                var candidate = new RouteSummary(cost.Jumps + 1, cost.Low + (sys.DisplaySecurity < HighSec ? 1 : 0));
+                if (best.TryGetValue(next, out var existing) &&
+                    (existing.LowSecSystems, existing.Jumps).CompareTo((candidate.LowSecSystems, candidate.Jumps)) <= 0)
+                    continue;
+                best[next] = candidate;
+                queue.Enqueue(next, (candidate.LowSecSystems, candidate.Jumps));
+            }
+        }
+        return best;
+    }
+
+    /// <summary>The safer route between two systems, or null if there's none.</summary>
+    public RouteSummary? Safer(int from, int to) =>
+        from == to ? new RouteSummary(0, 0) : SaferFrom(from).GetValueOrDefault(to);
 }
